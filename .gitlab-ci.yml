@@ -1,0 +1,7 @@
+image: rust:1.23-jessie
+
+test:
+  script:
+    - rustc --version && cargo --version
+    - cargo build --verbose
+    - cargo test
