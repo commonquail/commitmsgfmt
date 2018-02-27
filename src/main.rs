@@ -198,6 +198,32 @@ mod tests {
     use std::process::Command;
     use std::process::Stdio;
 
+    fn cargo_run_cmd(w: &str) -> Vec<String> {
+        let mut cmd: Vec<String> = Vec::with_capacity(8);
+        cmd.push("cargo".to_owned());
+        cmd.push("run".to_owned());
+        cmd.push("--quiet".to_owned());
+
+        if let Ok(t) = std::env::var("TARGET") {
+            cmd.push("--target".to_owned());
+            cmd.push(t);
+        }
+
+        cmd.push("--".to_owned());
+        cmd.push("--width".to_owned());
+        cmd.push(w.to_owned());
+
+        cmd
+    }
+
+    fn target_binary_with_width(w: &str) -> Command {
+        let cargo_run = cargo_run_cmd(w);
+        let mut cmd = Command::new(&cargo_run[0]);
+        cmd.args(&cargo_run[1..]);
+
+        cmd
+    }
+
     #[test]
     fn to_utf8_converts_utf_8_bytes_to_utf_8() {
         let some_utf_8_str = "å";
@@ -229,8 +255,7 @@ mod tests {
 
     #[test]
     fn width_0_exits_with_code_1() {
-        let output = Command::new("./target/debug/commitmsgfmt")
-            .arg("--width=0")
+        let output = target_binary_with_width("0")
             .output()
             .expect("run debug binary");
 
@@ -243,8 +268,7 @@ mod tests {
 
     #[test]
     fn width_0foo_exits_with_code_1() {
-        let output = Command::new("./target/debug/commitmsgfmt")
-            .arg("--width=0foo")
+        let output = target_binary_with_width("0foo")
             .output()
             .expect("run debug binary");
 
@@ -259,8 +283,7 @@ mod tests {
     fn width_1_wraps_body_at_width_1_and_exits_successfully() {
         use std::io::Write;
 
-        let mut cmd: Child = Command::new("./target/debug/commitmsgfmt")
-            .arg("--width=1")
+        let mut cmd: Child = target_binary_with_width("1")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -297,7 +320,7 @@ y
     fn broken_pipe_exits_with_code_141() {
         // Here be dragons!
         //
-        // Sometimes when piping from one command to an other, the first command
+        // Sometimes when piping from one command to another, the first command
         // experiences a "broken pipe": it tries to write to a destination that
         // is no longer listening. The first command should be able to handle
         // this gracefully.
@@ -331,14 +354,31 @@ y
         // Aside from being a horrendous hack, the two biggest risks here are
         // 1) that Bash is not available, and 2) that the input fits in all the
         // buffers in play so there are no more writes after the first read.
+        // Except for on macOS, where all bets are off and we'll just have to
+        // cross our fingers this works.
+
+        let gnu_head: &str = std::env::var("TARGET")
+            .ok()
+            .and_then(|t| {
+                if t.contains("darwin") {
+                    Some("ghead")
+                } else {
+                    None
+                }
+            })
+            .unwrap_or("head");
 
         let output = Command::new("bash")
             .args(&[
                 "-c",
-                "set -e
-                 set -o pipefail
-                 ./target/debug/commitmsgfmt < Cargo.lock |
-                 head -n0",
+                &format!(
+                    "set -e
+                     set -o pipefail
+                     {} < Cargo.lock |
+                     {} -n0",
+                    cargo_run_cmd("72").join(" "),
+                    gnu_head
+                ),
             ])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

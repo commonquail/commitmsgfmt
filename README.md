@@ -66,9 +66,20 @@ In summary, `commitmsgfmt`
 
 ## Installation
 
-`commitmsgfmt` is written in Rust and does not yet provide pre-built binaries.
-Run `cargo build --release` to build the binary, then place
-`target/release/commitmsgfmt` somewhere in your `$PATH`.
+`commitmsgfmt` provides precompiled binaries for Linux, macOS, Windows, and
+BSD:
+
+https://github.com/commonquail/commitmsgfmt/releases
+
+The Linux binaries are static executables. The Windows binaries are built with
+either MinGW or Microsoft Visual C++; the latter is better but requires
+a separate installation of the Microsoft VC++ 2015 redistributable
+[[vc-redist]].
+
+Alternatively, if you have a working Rust environment you can build the binary
+from scratch with `cargo build --release`.
+
+Once you have obtained the binary, place it somewhere in your `$PATH`.
 
 ### Vim
 
@@ -164,3 +175,4 @@ text formatting and their limitations may be a preferable trade-off.
 [par]: http://www.nicemice.net/par/ "Par paragraph formatter"
 [templatedir]: https://git-scm.com/docs/git-config#git-config-inittemplateDir "Git configuration documentation"
 [tpope]: http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html "A Note About Git Commit Messages"
+[vc-redist]: https://www.microsoft.com/en-us/download/details.aspx?id=48145 "Microsoft VC++ 2015 redistributable"
