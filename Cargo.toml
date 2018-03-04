@@ -2,6 +2,12 @@
 name = "commitmsgfmt"
 version = "0.1.0"
 authors = ["Mikkel Kjeldsen"]
+description = "Formats commit messages better than fmt(1) and Vim"
+publish = false
+homepage = "https://gitlab.com/mkjeldsen/commitmsgfmt"
+repository = "https://gitlab.com/mkjeldsen/commitmsgfmt"
+readme = "README.md"
+license = "Apache-2.0"
 
 [dependencies]
 regex = "0.2.6"
