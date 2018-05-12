@@ -26,6 +26,9 @@ matrix:
     # Testing other channels
     - env: TARGET=x86_64-unknown-linux-gnu
       rust: nightly
+  allow_failures:
+    # japaric/trust#101
+    - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
 
 before_install:
   - set -e
