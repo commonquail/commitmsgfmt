@@ -45,6 +45,8 @@ In summary, `commitmsgfmt`
 - counts "characters" as they appear on screen, i.e. graphemes, without
   mangling multi-byte characters.
 
+For more details on `commitmsgfmt`'s behaviour, refer to its manual page.
+
 ### Limitations
 
 - `commitmsgfmt` is context sensitive but Vim's `gq` command has no context,

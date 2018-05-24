@@ -24,9 +24,10 @@ install:
       If ($Env:TARGET -eq 'x86_64-pc-windows-gnu') {
         $Env:PATH += ';C:\msys64\mingw64\bin'
       }
+  - gem install asciidoctor
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
-  - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - set PATH=C:\Ruby25-x64\bin;%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -Vv
   - cargo -V
 
@@ -38,6 +39,7 @@ test_script:
     )
 
 before_deploy:
+  - asciidoctor --doctype manpage --backend manpage "doc/*.adoc"
   - cargo build --target %TARGET% --release
   - ps: >-
       If ($Env:TARGET -eq 'x86_64-pc-windows-gnu') {
