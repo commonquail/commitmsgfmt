@@ -1,0 +1,266 @@
+= commitmsgfmt(1)
+:version: 1.0.0
+:man source: commitmsgfmt {version}
+:man manual: User Commands
+:self: pass:q[*commitmsgfmt*]
+:uri-algo: https://en.wikipedia.org/w/index.php?title=Line_wrap_and_word_wrap&oldid=838974524#Minimum_number_of_lines
+
+== Name
+
+commitmsgfmt - Format commit messages
+
+== Synopsis
+
+[verse]
+{self} *-V*
+{self} *--version*
+{self} *-h*
+{self} *--help*
+{self} [*--width* _NUM_]
+
+== Description
+
+{self} is a filter for formatting commit messages. It reflows and wraps text,
+with special understanding of patterns often seen in commit messages.
+
+For formatting commit messages, {self}'s support for non-trivial text
+constructs makes it superior to *fmt*(1); its simplicity makes it superior to
+Vim's internal formatting function; and its ease of use makes it superior to
+*par*(1).
+
+{self} reads text to format from standard input and prints the reformatted text
+to standard output. It is written specifically for use with Vim's `'formatprg'`
+option, which expects this behavior, but if your text editor does not have a
+similar integration mechanism {self} can also be used in a Git hook; see
+*<<_usage,USAGE>>*.
+
+{self} uses Git-like conventions but is principally agnostic about version
+control systems.
+
+== Options
+
+*-h*, *--help*::
+
+Display this help and exit.
+
+*-V*, *--version*::
+
+Output version information and exit.
+
+*-w*, *--width* _NUM_::
+
+Specify the max allowed width of body text. Default 72.
+
+== Details
+
+The exact formatting behavior is implementation defined. This section attempts
+to describe the rules but deviation may be either an inexpediency in the
+implementation or an error in the description.
+
+NOTE: Depending on your expectations of merge commit messages you may find
+{self} unsuitable for use in such messages. If you write them precisely like
+you write non-merge commit messages, go ahead and format them with {self}.
+However, if you write merge commit messages like in the Linux kernel or the Git
+project, {self} will have trouble with certain constructs and may prove
+counter-productive.
+
+=== Paragraph
+
+Generally, any two consecutive lines will be considered to belong to the same
+_paragraph_. Paragraphs are wrapped either at the last space up to *--width*
+graphemes, or at *--width* if there are no spaces in the respective line.
+Paragraphs are surrounded by a single empty line, additional empty lines being
+removed.
+
+{self} currently uses the traditional greedy _minimum number of lines_ wrapping
+algorithm{empty}footnoteref:[wrap-algo,{uri-algo}], like *fmt*(1) and Vim, for
+ease of implementation and performance comparability. This may change.
+
+=== Subject line
+
+{self} will recognize the first non-blank, non-comment line as the _subject
+line_ instead of a paragraph, like Git, but unlike Git {self} will
+
+* trim the line;
+
+* push any immediately following line into its own body paragraph rather than
+  fold it into the subject;
+
+* limit the subject to at most 90 graphemes, irrespective of *--width*,
+  breaking either at the last period up to this limit or immediately after the
+  limit.
+
+The subject line limit is necessary to prevent cramming the entire message into
+the subject. The choice of 90 is largely arbitrary. The limit is not 50, as
+often suggested, because the subject line limit is supposed to be a guideline,
+not a hard rule, and {self} tries not be a stick.
+
+Except for the subject line, items can appear in any order.
+
+=== Reference
+
+A line that starts with a left bracket (*[*) followed by one or more
+non-whitespace characters, a right bracket (*]*), an optional colon (*:*), and
+a space is considered a _reference_, similar in style to the one IEEE
+whitepapers often use:
+
+----
+Official Git Web site [1][git]
+
+[1] https://git-scm.com/
+[git]: https://git-scm.com/
+----
+
+References are not wrapped, on account of frequently being URLs. References are
+not considered to have a natural order and correspondingly are not sorted, and
+the identifier between the brackets is not cross-checked with the rest of the
+message.
+
+=== Trailer
+
+A line that starts with a letter followed by one or more letters or dashes
+(*-*), a colon (*:*), a space, and any other character is considered a
+_trailer_. By way of example, the most famous trailer is probably
+
+----
+Signed-off-by: name <email address>
+----
+
+Trailers are not wrapped and are not considered to have a natural order.
+
+=== List item
+
+A line starting with up to 2 spaces followed by either a dash (*-*) or an
+asterisk (***) and a space is considered an _unnumbered list item_:
+
+----
+- unnumbered
+  - unnumbered
+* unnumbered
+----
+
+A line starting with up to 2 spaces followed by either
+
+* a left brace (*(*), one or more digits, a right brace (*)*), and a space; or
+
+* one or more digits, any one of a period (*.*), right brace (*)*), right
+  bracket (*]*), or colon (*:*), and a space
+
+is considered a _numbered list item_:
+
+----
+1. numbered
+  (1) numbered
+----
+
+List items are wrapped like _paragraphs_ but consecutive list items need not be
+separated by a blank line. Every line in a list item is indented to match the
+first line in that item. List items are not aware of each other.
+
+{self} cannot format further indented list items since they would clash with
+literals.
+
+=== Literal
+
+A line starting with one tab or four spaces is considered a _literal_. Literals
+are printed verbatim, making them suitable for listings and tables.
+
+=== Comment
+
+A line starting with a hash sign (*#*) is considered a _comment_. Comments are
+not wrapped.
+
+{self} does not respect Git's *core.commentChar* setting.
+
+== Usage
+
+{self} needs to read the complete original commit message from standard input
+and write the formatted message to standard output. This section briefly
+demonstrates how to integrate {self}. The instructions assume that {self} is
+available in your *PATH*.
+
+=== Vim
+
+Ensure you have *filetype plugin on*, then create the file
+*$HOME/.vim/after/ftplugin/gitcommit.vim* containing
+
+----
+setlocal formatprg=commitmsgfmt
+----
+
+The above setting is the absolute minimum requirement, and is sufficient, but
+can be improved upon in a few ways. The distribution includes a sample
+configuration at _contrib/vim/after/ftplugin/gitcommit.vim_ that greatly
+improves the experience.
+
+=== Editor without 'formatprg'-like
+
+Text editors without the ability to delegate reformatting to a third-party tool
+can leverage the _commit-msg_ Git hook to reformat the commit message. This
+works, and is explicitly allowed by the specification, but should be used as a
+last resort since you lose the ability to review and easily undo any
+undesirable formatting caused by {self}.
+
+TIP: If {self} makes a mistake you need to correct, run *git commit --amend
+--no-verify* to reopen the last commit's message for editing and bypass the
+hook.
+
+The distribution includes a sample hook at _contrib/git/hooks/commit-msg_ ready
+for use; just copy it to your repository's hook directory:
+
+----
+$ cp -t .git/hooks/ .../contrib/git/hooks/commit-msg
+----
+
+The provided hook is conservative to make up for the difficulty of correcting
+mistakes. If you know you never write merge commit messages any differently
+from non-merge commit messages feel free to enable {self} for merge commits,
+too.
+
+If you don't want to repeat this setup for every single repository, Git offers
+two configuration options that can help: _init.templateDir_, which names a
+directory with hooks to include automatically in new repositories, and
+_core.hooksPath_, which can name a centralised directory to locate hooks in.
+
+== Example
+
+Given input
+
+----
+subject
+foo bar baz [1]
+
+- foo
+1. foo bar
+baz
+
+[1] abcdefghijklmnopq
+----
+
+_commitmsgfmt --width 10_ will produce
+
+----
+subject
+
+foo bar
+baz [1]
+
+- foo
+1. foo bar
+   baz
+
+[1] abcdefghijklmnopq
+----
+
+== See also
+
+*fmt*(1), *par*(1)
+
+== Author
+
+link:mailto:commonquail@gmail.com[Mikkel Kjeldsen]
+
+== Reporting bugs
+
+Report bugs and feature requests on the main project development page at
+https://gitlab.com/mkjeldsen/commitmsgfmt/

@@ -17,6 +17,7 @@ Copy-Item "$SRC_DIR\LICENSE.txt" '.\'
 Copy-Item "$SRC_DIR\README.md" '.\'
 Copy-Item "$SRC_DIR\contrib"  '.\' -Recurse
 Copy-Item "$SRC_DIR\target\${Env:TARGET}\release\${Env:CRATE_NAME}.exe" '.\'
+Copy-Item "$SRC_DIR\doc\${Env:CRATE_NAME}.1" '.\'
 
 Set-Location ..
 

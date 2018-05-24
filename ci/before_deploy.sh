@@ -25,6 +25,7 @@ main() {
     cp LICENSE.txt "$stage/$package"
     cp README.md "$stage/$package"
     cp "target/$TARGET/release/$CRATE_NAME" "$stage/$package"
+    cp "doc/$CRATE_NAME.1" "$stage/$package"
     cp -r contrib "$stage/$package"
 
     cd "$stage"

@@ -32,6 +32,7 @@ matrix:
 
 before_install:
   - set -e
+  - gem install asciidoctor
   - rustup self update
 
 install:
@@ -39,6 +40,7 @@ install:
   - source ~/.cargo/env || true
 
 script:
+  - asciidoctor --doctype manpage --backend manpage "docs/*.adoc"
   - sh ci/script.sh
 
 after_script: set +e
