@@ -40,7 +40,7 @@ install:
   - source ~/.cargo/env || true
 
 script:
-  - asciidoctor --doctype manpage --backend manpage "docs/*.adoc"
+  - asciidoctor --doctype manpage --backend manpage "doc/*.adoc"
   - sh ci/script.sh
 
 after_script: set +e
