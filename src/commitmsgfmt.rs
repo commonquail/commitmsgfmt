@@ -25,14 +25,18 @@ impl CommitMsgFmt {
                     buf.push_str(c.as_str());
                     buf.push('\n');
                 }
-                ListItem(ref prefix, ref s) => {
-                    let prefix = &prefix.0;
+                ListItem(ref indent, ref li, ref s) => {
+                    let indent = &indent.0;
+                    let li = &li.0;
+                    let mut continuation = String::with_capacity(indent.len() + li.len());
+                    continuation.push_str(indent);
+                    continuation.push_str(&" ".repeat(li.len()));
                     let mut rest = s.clone();
-                    buf.push_str(prefix);
+                    buf.push_str(indent);
+                    buf.push_str(li);
 
                     let mut rest_len = rest.graphemes(true).count();
-                    let indent = &" ".repeat(prefix.len());
-                    let limit = self.width - indent.len();
+                    let limit = self.width - continuation.len();
 
                     while rest_len > limit {
                         let mut end = limit + 1;
@@ -48,7 +52,7 @@ impl CommitMsgFmt {
                         };
                         buf.push_str(&rest[..end]);
                         buf.push('\n');
-                        buf.push_str(indent);
+                        buf.push_str(&continuation);
                         rest = rest.split_off(start);
                         rest_len = rest.len();
                     }
@@ -270,6 +274,12 @@ foo
 
 - continuation line that should be
       realigned
+
+  - spc-indented continuation line
+      that should be realigned
+
+\t- tab-indented continuation line
+      that should be realigned
 ";
 
         let expected = "
@@ -277,6 +287,12 @@ foo
 
 - continuation line that should be
   realigned
+
+  - spc-indented continuation line
+    that should be realigned
+
+\t- tab-indented continuation line
+\t  that should be realigned
 ";
 
         assert_eq!(filter(34, &input), expected);

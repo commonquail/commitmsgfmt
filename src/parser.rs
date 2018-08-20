@@ -5,10 +5,13 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct ListType(pub String);
 
 #[derive(Debug, PartialEq)]
+pub struct ListIndent(pub String);
+
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Comment(String),
     Reference(String),
-    ListItem(ListType, String),
+    ListItem(ListIndent, ListType, String),
     Literal(String),
     Paragraph(String),
     Subject(String),
@@ -27,23 +30,25 @@ pub fn parse(input: &str) -> Vec<Token> {
     let indented = Regex::new(r"^(?:\t| {4,})").unwrap();
     let list_item = Regex::new(
         r"(?x)
-    ^(
+    ^(?P<indent>
     # Lists may be indented a little; too much and they become literals.
     \s{0,2}
-    (:?
-        # We recognize unnumbered list markers...
-        [-*]
-        |
-        (:?
-            # ... and numbered list markers...
-            \d+
-            # ... followed by some delimiter observed in the wild...
-            [.)\]:]
-            |
-            # ... or, alternatively, wrapped in parentheses...
-            \(\d+\)
-        )
     )
+    (?P<li>
+        (:?
+            # We recognize unnumbered list markers...
+            [-*]
+            |
+            (:?
+                # ... and numbered list markers...
+                \d+
+                # ... followed by some delimiter observed in the wild...
+                [.)\]:]
+                |
+                # ... or, alternatively, wrapped in parentheses...
+                \(\d+\)
+            )
+        )
     # ... when the list item marker ends with at least one space.
     \s+)",
     ).unwrap();
@@ -68,7 +73,7 @@ pub fn parse(input: &str) -> Vec<Token> {
                     b.push_str(line.trim());
                     None
                 }
-                Some(&mut Token::ListItem(_, ref mut b)) => {
+                Some(&mut Token::ListItem(_, _, ref mut b)) => {
                     if list_item.is_match(line) {
                         Some(list_item_from_line(&list_item, line))
                     } else {
@@ -133,8 +138,14 @@ fn parse_subject(line: &str, toks: &mut Vec<Token>) {
 }
 
 fn list_item_from_line(pat: &Regex, line: &str) -> Token {
-    let t = pat.captures(line).unwrap().get(1).unwrap().as_str();
-    Token::ListItem(ListType(t.to_owned()), line[t.len()..].to_owned())
+    let captures = pat.captures(line).unwrap();
+    let indent = captures.name("indent").unwrap();
+    let li = captures.name("li").unwrap();
+    Token::ListItem(
+        ListIndent(indent.as_str().to_owned()),
+        ListType(li.as_str().to_owned()),
+        line[li.end()..].to_owned(),
+    )
 }
 
 #[cfg(test)]
@@ -590,26 +601,48 @@ paragraph
                 VerticalSpace,
                 Subject("foo".to_owned()),
                 VerticalSpace,
-                ListItem(ListType("- ".to_owned()), "list item".to_owned()),
-                ListItem(ListType("- ".to_owned()), "wrapped list item".to_owned()),
                 ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("- ".to_owned()),
+                    "list item".to_owned()
+                ),
+                ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("- ".to_owned()),
+                    "wrapped list item".to_owned()
+                ),
+                ListItem(
+                    ListIndent("".to_owned()),
                     ListType("- ".to_owned()),
                     "over-indented continuation".to_owned()
                 ),
                 ListItem(
+                    ListIndent("".to_owned()),
                     ListType("- ".to_owned()),
                     "under-indented continuation".to_owned()
                 ),
                 VerticalSpace,
                 Paragraph("paragraph".to_owned()),
                 VerticalSpace,
-                ListItem(ListType(" - ".to_owned()), "indented list item".to_owned()),
+                ListItem(
+                    ListIndent(" ".to_owned()),
+                    ListType("- ".to_owned()),
+                    "indented list item".to_owned()
+                ),
                 VerticalSpace,
-                ListItem(ListType("  - ".to_owned()), "indented list item".to_owned()),
+                ListItem(
+                    ListIndent("  ".to_owned()),
+                    ListType("- ".to_owned()),
+                    "indented list item".to_owned()
+                ),
                 VerticalSpace,
                 Paragraph("- paragraph".to_owned()),
                 VerticalSpace,
-                ListItem(ListType("- ".to_owned()), "spaced list item".to_owned()),
+                ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("- ".to_owned()),
+                    "spaced list item".to_owned()
+                ),
             ],
         );
     }
@@ -650,27 +683,59 @@ foo
                 VerticalSpace,
                 Subject("foo".to_owned()),
                 VerticalSpace,
-                ListItem(ListType("- ".to_owned()), "dash".to_owned()),
-                ListItem(ListType("* ".to_owned()), "bullet".to_owned()),
-                ListItem(ListType("1. ".to_owned()), "numbered".to_owned()),
-                ListItem(ListType("0. ".to_owned()), "unordered numbered".to_owned()),
-                ListItem(ListType("2) ".to_owned()), "numbered".to_owned()),
-                ListItem(ListType("3] ".to_owned()), "numbered".to_owned()),
-                ListItem(ListType("4: ".to_owned()), "numbered".to_owned()),
                 ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("- ".to_owned()),
+                    "dash".to_owned()
+                ),
+                ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("* ".to_owned()),
+                    "bullet".to_owned()
+                ),
+                ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("1. ".to_owned()),
+                    "numbered".to_owned()
+                ),
+                ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("0. ".to_owned()),
+                    "unordered numbered".to_owned()
+                ),
+                ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("2) ".to_owned()),
+                    "numbered".to_owned()
+                ),
+                ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("3] ".to_owned()),
+                    "numbered".to_owned()
+                ),
+                ListItem(
+                    ListIndent("".to_owned()),
+                    ListType("4: ".to_owned()),
+                    "numbered".to_owned()
+                ),
+                ListItem(
+                    ListIndent("".to_owned()),
                     ListType("50) ".to_owned()),
                     "multi-digit numbered".to_owned()
                 ),
                 ListItem(
+                    ListIndent("".to_owned()),
                     ListType("(1) ".to_owned()),
                     "parenthesised list item".to_owned()
                 ),
                 ListItem(
-                    ListType(" (10) ".to_owned()),
+                    ListIndent(" ".to_owned()),
+                    ListType("(10) ".to_owned()),
                     "parenthesised list item".to_owned()
                 ),
                 ListItem(
-                    ListType("  (100) ".to_owned()),
+                    ListIndent("  ".to_owned()),
+                    ListType("(100) ".to_owned()),
                     "parenthesised list item".to_owned()
                 ),
                 VerticalSpace,
