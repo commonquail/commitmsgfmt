@@ -3,6 +3,10 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
+## Unreleased
+
+- #3: Fix AppVeyor build failure.
+
 ## 1.0.1 - 2018-08-20
 
 - #1: Fix continuation indentation of tab-indented list items
