@@ -45,7 +45,7 @@ dependencies = [
 
 [[package]]
 name = "commitmsgfmt"
-version = "1.0.1-GIT"
+version = "1.0.2"
 dependencies = [
  "clap 2.31.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "encoding 0.2.33 (registry+https://github.com/rust-lang/crates.io-index)",

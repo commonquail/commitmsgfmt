@@ -3,7 +3,7 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
-## Unreleased
+## 1.0.2 - 2018-08-22
 
 - #4: Fix AppVeyor build failure.
 - #2: Fix "scissor" formatting for `commit --verbose`.
