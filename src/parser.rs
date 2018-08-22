@@ -15,6 +15,7 @@ pub enum Token {
     Literal(String),
     Paragraph(String),
     Subject(String),
+    Scissored(String),
     Trailer(String),
     VerticalSpace,
 }
@@ -23,6 +24,7 @@ pub fn parse(input: &str) -> Vec<Token> {
     let mut toks = Vec::new();
 
     let mut has_subject = false;
+    let mut has_scissors = false;
     let lines = input.lines();
     let blank_or_empty = Regex::new(r"^\s*$").unwrap();
     let reference = Regex::new(r"^\[[^]]+\]:? .+$").unwrap();
@@ -53,8 +55,25 @@ pub fn parse(input: &str) -> Vec<Token> {
     \s+)",
     ).unwrap();
     for line in lines {
-        if line.starts_with('#') {
-            toks.push(Token::Comment(line.to_owned()));
+        if has_scissors {
+            match toks.last_mut().expect("has_scissors") {
+                Token::Scissored(ref mut s) => {
+                    s.push_str(line);
+                    s.push('\n');
+                }
+                _ => unreachable!(),
+            }
+        } else if line.starts_with('#') {
+            let t = if &line[1..] == " ------------------------ >8 ------------------------" {
+                has_scissors = true;
+                let mut raw = String::with_capacity(20 * 60); // Toilet maths.
+                raw.push_str(line);
+                raw.push('\n'); // Recover linefeed lost from iterator.
+                Token::Scissored(raw)
+            } else {
+                Token::Comment(line.to_owned())
+            };
+            toks.push(t);
         } else if blank_or_empty.is_match(line) {
             if toks.last() != Some(&Token::VerticalSpace) {
                 toks.push(Token::VerticalSpace);
@@ -744,6 +763,41 @@ foo
                 Paragraph("7 not a list item".to_owned()),
                 VerticalSpace,
                 Paragraph("-) not a list item".to_owned()),
+            ],
+        );
+    }
+
+    #[test]
+    fn parses_scissored_content() {
+        assert_eq!(
+            parse(
+                "
+subject
+
+format
+this
+
+# ------------------------ >8 ------------------------
+do
+ not
+  format
+ this
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject".to_owned()),
+                VerticalSpace,
+                Paragraph("format this".to_owned()),
+                VerticalSpace,
+                Scissored(
+                    r#"# ------------------------ >8 ------------------------
+do
+ not
+  format
+ this
+"#.to_owned()
+                ),
             ],
         );
     }

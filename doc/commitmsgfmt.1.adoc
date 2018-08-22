@@ -168,9 +168,16 @@ are printed verbatim, making them suitable for listings and tables.
 === Comment
 
 A line starting with a hash sign (*#*) is considered a _comment_. Comments are
-not wrapped.
+not wrapped. If the whole line matches the _scissor_ marker it is instead
+considered _scissored_.
 
 {self} does not respect Git's *core.commentChar* setting.
+
+=== Scissored
+
+A line matching the _scissor_ marker, as defined by *git-commit*(1), denotes
+the start of scissored content. Everything from the scissor to the end of the
+stream is printed verbatim. *git commit --verbose* relies on this.
 
 == Usage
 
