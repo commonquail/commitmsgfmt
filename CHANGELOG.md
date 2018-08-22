@@ -5,7 +5,7 @@ understanding of patterns often seen in commit messages.
 
 ## Unreleased
 
-- #3: Fix AppVeyor build failure.
+- #4: Fix AppVeyor build failure.
 
 ## 1.0.1 - 2018-08-20
 
