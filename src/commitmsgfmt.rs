@@ -25,6 +25,9 @@ impl CommitMsgFmt {
                     buf.push_str(c.as_str());
                     buf.push('\n');
                 }
+                Scissored(ref s) => {
+                    buf.push_str(s.as_str());
+                }
                 ListItem(ref indent, ref li, ref s) => {
                     let indent = &indent.0;
                     let li = &li.0;
@@ -379,5 +382,34 @@ foo
 ";
 
         assert_eq!(filter(72, &msg), msg);
+    }
+
+    #[test]
+    fn preserves_scissored_content() {
+        let input = "
+foo
+
+format
+this
+
+# ------------------------ >8 ------------------------
+preserve
+ scissored
+
+content
+";
+
+        let expected = "
+foo
+
+format this
+
+# ------------------------ >8 ------------------------
+preserve
+ scissored
+
+content
+";
+        assert_eq!(filter(72, &input), expected);
     }
 }
