@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+
+bump()
+{
+    local v="$1"
+
+    sed -i '/^version /c version = "'"$v"'"' Cargo.toml
+    sed -i "/^:version: /c :version: $v" doc/*.adoc
+    cargo build
+    git add --patch
+}
+
+main()
+{
+    local v="$1"
+
+    sed -i 's/Unreleased/'"$v - $(date --iso-8601=date)"'/' CHANGELOG.md
+    bump "$v"
+    git commit --message "commitmsgfmt $v"
+    git tag --annotate "v$v" --message "commitmsgfmt $v"
+
+    bump "$v-GIT"
+    git commit --message "Start next cycle"
+}
+
+main "$@"
