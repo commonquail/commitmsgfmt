@@ -169,8 +169,8 @@ fn list_item_from_line(pat: &Regex, line: &str) -> Token {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::Token::*;
+    use super::*;
 
     #[test]
     fn parses_empty_str() {
