@@ -56,8 +56,8 @@ pub fn parse(input: &str) -> Vec<Token> {
     ).unwrap();
     for line in lines {
         if has_scissors {
-            match toks.last_mut().expect("has_scissors") {
-                &mut Token::Scissored(ref mut s) => {
+            match *toks.last_mut().expect("has_scissors") {
+                Token::Scissored(ref mut s) => {
                     s.push_str(line);
                     s.push('\n');
                 }
@@ -85,34 +85,34 @@ pub fn parse(input: &str) -> Vec<Token> {
             toks.push(Token::Reference(line.to_owned()));
         } else if trailer.is_match(line) {
             toks.push(Token::Trailer(line.to_owned()));
-        } else {
-            match toks.last_mut() {
-                Some(&mut Token::Paragraph(ref mut b)) => {
+        } else if let Some(y) = match toks.last_mut() {
+            Some(&mut Token::Paragraph(ref mut b)) => {
+                b.push(' ');
+                b.push_str(line.trim());
+                None
+            }
+            Some(&mut Token::ListItem(_, _, ref mut b)) => {
+                if list_item.is_match(line) {
+                    Some(list_item_from_line(&list_item, line))
+                } else {
                     b.push(' ');
                     b.push_str(line.trim());
                     None
                 }
-                Some(&mut Token::ListItem(_, _, ref mut b)) => {
-                    if list_item.is_match(line) {
-                        Some(list_item_from_line(&list_item, line))
-                    } else {
-                        b.push(' ');
-                        b.push_str(line.trim());
-                        None
-                    }
+            }
+            _ => {
+                if list_item.is_match(line) {
+                    Some(list_item_from_line(&list_item, line))
+                } else if indented.is_match(line) {
+                    let mut raw = line.to_owned();
+                    raw.push('\n'); // Recover linefeed lost from iterator.
+                    Some(Token::Literal(raw))
+                } else {
+                    Some(Token::Paragraph(line.trim().to_owned()))
                 }
-                _ => {
-                    if list_item.is_match(line) {
-                        Some(list_item_from_line(&list_item, line))
-                    } else if indented.is_match(line) {
-                        let mut raw = line.to_owned();
-                        raw.push('\n'); // Recover linefeed lost from iterator.
-                        Some(Token::Literal(raw))
-                    } else {
-                        Some(Token::Paragraph(line.trim().to_owned()))
-                    }
-                }
-            }.map(|y| toks.push(y));
+            }
+        } {
+            toks.push(y);
         }
     }
 
