@@ -78,6 +78,7 @@ impl Error for CliError {
 
 pub struct Config {
     width: usize,
+    comment_char: char,
 }
 
 impl Config {
@@ -92,9 +93,29 @@ impl Config {
 
         let cfg = Config {
             width: width as usize,
+            comment_char: Config::comment_char_from_git(),
         };
 
         Ok(cfg)
+    }
+
+    fn comment_char_from_git() -> char {
+        use std::process::Command;
+        use std::process::Output;
+
+        let output: Output = Command::new("git")
+            .args(&["config", "core.commentChar"])
+            .output()
+            .expect("git config");
+
+        // The setting is either unset, "auto", or precisely 1 ASCII character;
+        // Git won't commit with an invalid configuration value. "auto" support
+        // can be added on-demand, it requires at least 2 passes.
+        if output.stdout.is_empty() {
+            '#'
+        } else {
+            output.stdout[0].into()
+        }
     }
 }
 
@@ -134,7 +155,7 @@ Some text is exempt from wrapping:
     }
     let cfg = cfg.unwrap();
 
-    let commitmsgfmt = commitmsgfmt::CommitMsgFmt::new(cfg.width);
+    let commitmsgfmt = commitmsgfmt::CommitMsgFmt::new(cfg.width, cfg.comment_char);
 
     let result = read_all_bytes_from_stdin()
         .and_then(to_utf8)

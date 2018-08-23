@@ -167,11 +167,13 @@ are printed verbatim, making them suitable for listings and tables.
 
 === Comment
 
-A line starting with a hash sign (*#*) is considered a _comment_. Comments are
-not wrapped. If the whole line matches the _scissor_ marker it is instead
+A line starting with the *core.commentChar* character, or a hash sign (*#*)
+when that setting is unset, is considered a _comment_. Comments are not
+wrapped. If the whole line matches the _scissor_ marker it is instead
 considered _scissored_.
 
-{self} does not respect Git's *core.commentChar* setting.
+{self} currently does not support the special *auto* value for
+*core.commentChar*. In that case, {self} falls back to the hash sign.
 
 === Scissored
 

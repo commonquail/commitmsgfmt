@@ -5,15 +5,19 @@ use unicode_segmentation::UnicodeSegmentation;
 
 pub struct CommitMsgFmt {
     width: usize,
+    comment_char: char,
 }
 
 impl CommitMsgFmt {
-    pub fn new(width: usize) -> CommitMsgFmt {
-        CommitMsgFmt { width }
+    pub fn new(width: usize, comment_char: char) -> CommitMsgFmt {
+        CommitMsgFmt {
+            width,
+            comment_char,
+        }
     }
 
     pub fn filter(&self, input: &str) -> String {
-        let msg = parse(input);
+        let msg = parse(input, self.comment_char);
         self.reflow(&msg)
     }
 
@@ -123,7 +127,7 @@ mod tests {
     use super::*;
 
     fn filter(w: usize, s: &str) -> String {
-        CommitMsgFmt::new(w).filter(&s)
+        CommitMsgFmt::new(w, '#').filter(&s)
     }
 
     #[test]
@@ -411,5 +415,36 @@ preserve
 content
 ";
         assert_eq!(filter(72, &input), expected);
+    }
+
+    #[test]
+    fn preserves_scissored_content_with_custom_comment_char() {
+        let input = "
+foo
+
+# ------------------------ >8 ------------------------
+format
+this
+
+; ------------------------ >8 ------------------------
+preserve
+ scissored
+
+content
+";
+
+        let expected = "
+foo
+
+# ------------------------ >8 ------------------------ format this
+
+; ------------------------ >8 ------------------------
+preserve
+ scissored
+
+content
+";
+        let fmt = CommitMsgFmt::new(72, ';');
+        assert_eq!(fmt.filter(&input), expected);
     }
 }
