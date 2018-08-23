@@ -154,11 +154,9 @@ Some text is exempt from wrapping:
 }
 
 fn read_all_bytes_from_stdin() -> CliResult<Vec<u8>> {
-    use io::Read;
     let mut buf: Vec<u8> = Vec::new();
     let stdin = io::stdin();
-    let mut stdin = stdin.lock();
-    stdin.read_to_end(&mut buf)?;
+    io::copy(&mut stdin.lock(), &mut buf)?;
 
     Ok(buf)
 }
