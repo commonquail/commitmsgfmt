@@ -9,7 +9,7 @@ pub struct CommitMsgFmt {
 
 impl CommitMsgFmt {
     pub fn new(width: usize) -> CommitMsgFmt {
-        CommitMsgFmt { width: width }
+        CommitMsgFmt { width }
     }
 
     pub fn filter(&self, input: &str) -> String {
