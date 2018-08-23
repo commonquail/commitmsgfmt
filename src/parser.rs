@@ -57,7 +57,7 @@ pub fn parse(input: &str) -> Vec<Token> {
     for line in lines {
         if has_scissors {
             match toks.last_mut().expect("has_scissors") {
-                Token::Scissored(ref mut s) => {
+                &mut Token::Scissored(ref mut s) => {
                     s.push_str(line);
                     s.push('\n');
                 }
