@@ -10,9 +10,9 @@ readme = "README.md"
 license = "Apache-2.0"
 
 [dependencies]
-regex = "1.0.0"
+regex = "1.0.2"
 unicode-segmentation = "1.2.1"
-clap = "2.31.2"
+clap = "2.32.0"
 encoding = "0.2.33"
 
 [dev-dependencies]
