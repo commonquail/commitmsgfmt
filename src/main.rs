@@ -101,20 +101,20 @@ impl Config {
 
     fn comment_char_from_git() -> char {
         use std::process::Command;
-        use std::process::Output;
 
-        let output: Output = Command::new("git")
+        let output: Vec<u8> = Command::new("git")
             .args(&["config", "core.commentChar"])
             .output()
-            .expect("git config");
+            .map(|o| o.stdout)
+            .unwrap_or_else(|_| "#".into());
 
         // The setting is either unset, "auto", or precisely 1 ASCII character;
         // Git won't commit with an invalid configuration value. "auto" support
         // can be added on-demand, it requires at least 2 passes.
-        if output.stdout.is_empty() {
+        if output.is_empty() {
             '#'
         } else {
-            output.stdout[0].into()
+            output[0].into()
         }
     }
 }
