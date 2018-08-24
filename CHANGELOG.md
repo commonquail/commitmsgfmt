@@ -10,6 +10,8 @@ understanding of patterns often seen in commit messages.
   special `auto` value that makes Git choose, among 10 possible candidates, the
   first character to not occur in the current message's first column.
 
+- Advise on Vim integration regarding `'textwidth'` and `'wrap'` settings.
+
 ## 1.0.2 - 2018-08-22
 
 - #4: Fix AppVeyor build failure.
