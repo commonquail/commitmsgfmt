@@ -111,7 +111,7 @@ impl Config {
         // The setting is either unset, "auto", or precisely 1 ASCII character;
         // Git won't commit with an invalid configuration value. "auto" support
         // can be added on-demand, it requires at least 2 passes.
-        if output.is_empty() {
+        if output.is_empty() || output == b"auto" {
             '#'
         } else {
             output[0].into()
