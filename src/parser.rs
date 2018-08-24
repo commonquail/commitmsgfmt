@@ -20,7 +20,7 @@ pub enum Token {
     VerticalSpace,
 }
 
-pub fn parse(input: &str) -> Vec<Token> {
+pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut toks = Vec::new();
 
     let mut has_subject = false;
@@ -63,7 +63,7 @@ pub fn parse(input: &str) -> Vec<Token> {
                 }
                 _ => unreachable!(),
             }
-        } else if line.starts_with('#') {
+        } else if line.starts_with(comment_char) {
             let t = if &line[1..] == " ------------------------ >8 ------------------------" {
                 has_scissors = true;
                 let mut raw = String::with_capacity(20 * 60); // Toilet maths.
@@ -172,6 +172,10 @@ mod tests {
     use super::Token::*;
     use super::*;
 
+    fn parse(s: &str) -> Vec<Token> {
+        super::parse(s, '#')
+    }
+
     #[test]
     fn parses_empty_str() {
         assert!(parse("").is_empty());
@@ -198,8 +202,14 @@ mod tests {
     }
 
     #[test]
-    fn parses_comment() {
-        assert_eq!(parse("# foo"), [Comment("# foo".to_owned())]);
+    fn parses_default_comment() {
+        assert_eq!(super::parse("# foo", '#'), [Comment("# foo".to_owned())]);
+    }
+
+    #[test]
+    fn parses_custom_comment() {
+        assert_eq!(super::parse("@ foo", '@'), [Comment("@ foo".to_owned())]);
+        assert_eq!(super::parse("# foo", '@'), [Subject("# foo".to_owned())]);
     }
 
     #[test]
@@ -796,6 +806,40 @@ do
  not
   format
  this
+"#.to_owned()
+                ),
+            ],
+        );
+    }
+
+    #[test]
+    fn parses_scissored_content_with_custom_comment_char() {
+        assert_eq!(
+            super::parse(
+                "
+subject
+
+# ------------------------ >8 ------------------------
+above is not a comment;
+do the needful
+
+$ ------------------------ >8 ------------------------
+do
+ not
+  format
+", '$'
+            ),
+            [
+                VerticalSpace,
+                Subject("subject".to_owned()),
+                VerticalSpace,
+                Paragraph("# ------------------------ >8 ------------------------ above is not a comment; do the needful".to_owned()),
+                VerticalSpace,
+                Scissored(
+                    r#"$ ------------------------ >8 ------------------------
+do
+ not
+  format
 "#.to_owned()
                 ),
             ],
