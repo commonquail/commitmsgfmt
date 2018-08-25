@@ -3,7 +3,7 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
-## Unreleased
+## 1.1.0 - 2018-08-25
 
 - #3: If the `core.commentChar` setting is set to an explicit character, use
   that for identifying comments. Default to `#` when unset or set to the
