@@ -1,6 +1,6 @@
 [package]
 name = "commitmsgfmt"
-version = "1.1.0"
+version = "1.1.0-GIT"
 authors = ["Mikkel Kjeldsen"]
 description = "Formats commit messages better than fmt(1) and Vim"
 publish = false
