@@ -309,7 +309,7 @@ mod tests {
         cmd.stdin
             .as_mut()
             .expect("child stdin")
-            .write_all(b"subject\nbody")
+            .write_all(b"subject\nb o d y")
             .expect("write to child stdin");
 
         let output = cmd.wait_with_output().expect("run debug binary");

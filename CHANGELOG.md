@@ -3,6 +3,14 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
+## Unreleased
+
+- When wrapping a line, only do so at the last space before the line length
+  limit; do not break any words to remain within the limit. "Words" that extend
+  beyond the limit are not likely to be meaningfully breakable in the first
+  place, and breaking is actively detrimental to URLs. This change alone yields
+  a 6-8 times speed-up as reported by `time(1)`.
+
 ## 1.1.0 - 2018-08-25
 
 - #3: If the `core.commentChar` setting is set to an explicit character, use
