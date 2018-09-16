@@ -242,6 +242,7 @@ foo bar baz [1]
 - foo
 1. foo bar
 baz
+2. https://www.url.example long word
 
 [1] abcdefghijklmnopq
 ----
@@ -257,6 +258,11 @@ baz [1]
 - foo
 1. foo bar
    baz
+2. https://
+   www.url.
+   example
+   long
+   word
 
 [1] abcdefghijklmnopq
 ----

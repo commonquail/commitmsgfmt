@@ -447,4 +447,32 @@ content
         let fmt = CommitMsgFmt::new(72, ';');
         assert_eq!(fmt.filter(&input), expected);
     }
+
+    #[test]
+    fn bug_wrapping_treats_exotic_whitespace_differently_from_ascii_spaces() {
+        // Whether wrapping should treat all whitespace the same is debatable but certainly we only
+        // consider the regular ASCII space. This test documents the acknowledgement thereof, not a
+        // deliberate decision, and classifies it a bug for that reason.
+        //
+        // Some largely arbitrary whitespace characters from
+        // https://en.wikipedia.org/w/index.php?title=Whitespace_character&oldid=858017200
+        let input = "
+foo
+
+a b\tc\u{00a0}d\u{2003}e\u{2009}f\u{202f}g
+";
+
+        let expected = "
+foo
+
+a
+b\t
+c\u{00a0}
+d\u{2003}
+e\u{2009}
+f\u{202f}
+g
+";
+        assert_eq!(filter(2, &input), expected);
+    }
 }
