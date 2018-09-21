@@ -67,10 +67,13 @@ counter-productive.
 === Paragraph
 
 Generally, any two consecutive lines will be considered to belong to the same
-_paragraph_. Paragraphs are wrapped either at the last space up to *--width*
-graphemes, or at *--width* if there are no spaces in the respective line.
-Paragraphs are surrounded by a single empty line, additional empty lines being
-removed.
+_paragraph_. Paragraphs are wrapped at the last space up to *--width*
+graphemes. Paragraphs are surrounded by a single empty line, additional empty
+lines being removed.
+
+A line that extends beyond *--width* but contains no space--effectively a
+single word, or for instance a long URL--will not be wrapped. Indentation
+spaces are ignored in this context.
 
 {self} currently uses the traditional greedy _minimum number of lines_ wrapping
 algorithm{empty}footnoteref:[wrap-algo,{uri-algo}], like *fmt*(1) and Vim, for
@@ -242,6 +245,7 @@ foo bar baz [1]
 - foo
 1. foo bar
 baz
+2. https://www.url.example long word
 
 [1] abcdefghijklmnopq
 ----
@@ -257,6 +261,9 @@ baz [1]
 - foo
 1. foo bar
    baz
+2. https://www.url.example
+   long
+   word
 
 [1] abcdefghijklmnopq
 ----

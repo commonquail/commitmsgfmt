@@ -38,76 +38,17 @@ impl CommitMsgFmt {
                     let mut continuation = String::with_capacity(indent.len() + li.len());
                     continuation.push_str(indent);
                     continuation.push_str(&" ".repeat(li.len()));
-                    let mut rest = s.clone();
                     buf.push_str(indent);
                     buf.push_str(li);
 
-                    let mut rest_len = rest.graphemes(true).count();
-                    let limit = self.width - continuation.len();
-
-                    while rest_len > limit {
-                        let mut end = limit + 1;
-                        while !rest.is_char_boundary(end) {
-                            end -= 1;
-                        }
-                        let (end, start) = match rest[..end].rfind(' ') {
-                            Some(prev_space) => (prev_space, prev_space + 1),
-                            None => match rest.grapheme_indices(true).nth(end) {
-                                Some((ll, _)) => (ll, ll),
-                                None => (end, end),
-                            },
-                        };
-                        buf.push_str(&rest[..end]);
-                        buf.push('\n');
-                        buf.push_str(&continuation);
-                        rest = rest.split_off(start);
-                        rest_len = rest.len();
-                    }
-                    buf.push_str(&rest);
+                    self.wrap_paragraph_into(&mut buf, &s, Some(&continuation));
                     buf.push('\n');
                 }
                 Literal(ref l) => {
                     buf.push_str(l.as_str());
                 }
                 Paragraph(ref p) => {
-                    let mut line = String::with_capacity(self.width);
-                    for c in p.chars() {
-                        let len = line.graphemes(true).count();
-                        match c {
-                            ' ' => {
-                                if len < self.width {
-                                    line.push(c);
-                                } else {
-                                    buf.push_str(&line);
-                                    buf.push('\n');
-                                    line.clear();
-                                }
-                            }
-                            _ => {
-                                if len < self.width {
-                                    line.push(c);
-                                } else {
-                                    let rest = match line.rfind(' ') {
-                                        Some(prev_space) => {
-                                            let rest = line.split_off(prev_space);
-                                            Some(rest)
-                                        }
-                                        None => None,
-                                    };
-                                    buf.push_str(&line);
-                                    buf.push('\n');
-
-                                    line.clear();
-
-                                    if let Some(rest) = rest {
-                                        line.push_str(&rest[1..]);
-                                    }
-                                    line.push(c);
-                                }
-                            }
-                        }
-                    }
-                    buf.push_str(&line);
+                    self.wrap_paragraph_into(&mut buf, &p, None);
                     buf.push('\n');
                 }
                 Reference(ref s) | Subject(ref s) | Trailer(ref s) => {
@@ -119,6 +60,33 @@ impl CommitMsgFmt {
         }
 
         buf
+    }
+
+    fn wrap_paragraph_into(&self, buf: &mut String, paragraph: &str, continuation: Option<&str>) {
+        let limit = match continuation {
+            Some(ref c) => self.width - c.len(),
+            None => self.width,
+        };
+        let mut cur_line_len = 0;
+        for word in paragraph.split(' ') {
+            let word_len = word.graphemes(true).count();
+
+            // Not a new line so we need to fiddle with whitespace.
+            if cur_line_len != 0 {
+                if cur_line_len + word_len > limit {
+                    cur_line_len = 0;
+                    buf.push('\n');
+                    if let Some(cont) = continuation {
+                        buf.push_str(&cont);
+                    }
+                } else {
+                    buf.push(' ');
+                }
+            }
+
+            buf.push_str(&word);
+            cur_line_len += word_len + 1;
+        }
     }
 }
 
@@ -142,11 +110,10 @@ mod tests {
 
     #[test]
     fn formats_long_single_line_message() {
-        let s = "f".repeat(105);
+        let s = "f".repeat(100);
         assert_eq!(filter(10, &s), "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 ffffffffff
-fffff
 ");
     }
 
@@ -155,14 +122,14 @@ fffff
         let s = "
 ääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääë
 
-öööööü";
+öööö ü";
 
         assert_eq!(filter(5, &s), "
 ääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääää
 
 ë
 
-ööööö
+öööö
 ü
 ", "break before every changing grapheme");
     }
@@ -266,9 +233,7 @@ foo
 - foo foo
   baaaaar bar
 
-- ääääääääääääää
-  ëëëëëëëëëëëëëë
-  ö
+- ääääääääääääääëëëëëëëëëëëëëëö
 ";
 
         assert_eq!(filter(16, &input), expected);
@@ -446,5 +411,67 @@ content
 ";
         let fmt = CommitMsgFmt::new(72, ';');
         assert_eq!(fmt.filter(&input), expected);
+    }
+
+    #[test]
+    fn bug_wrapping_treats_exotic_whitespace_differently_from_ascii_spaces() {
+        // Whether wrapping should treat all whitespace the same is debatable but certainly we only
+        // consider the regular ASCII space. This test documents the acknowledgement thereof, not a
+        // deliberate decision, and classifies it a bug for that reason.
+        //
+        // Some largely arbitrary whitespace characters from
+        // https://en.wikipedia.org/w/index.php?title=Whitespace_character&oldid=858017200
+        let input = "
+foo
+
+a b\tc\u{00a0}d\u{2003}e\u{2009}\u{2009}f\u{202f}g
+
+    a b\tc\u{00a0}d\u{2003}e\u{2009}f\u{202f}g
+";
+
+        let expected = "
+foo
+
+a
+b\tc\u{00a0}d\u{2003}e\u{2009}\u{2009}f\u{202f}g
+
+    a b\tc\u{00a0}d\u{2003}e\u{2009}f\u{202f}g
+";
+        assert_eq!(filter(2, &input), expected);
+    }
+
+    #[test]
+    fn does_not_break_words() {
+        let input = "
+foo
+
+foo bar baz
+qux areallylongword
+and https://a.really-long-url.example
+
+- foo bar baz
+- qux https://a.really-long-url.example
+- https://a.really-long-url.example
+
+[1] https://a.really-long-url.example
+";
+        let expected = "
+foo
+
+foo bar
+baz qux
+areallylongword
+and
+https://a.really-long-url.example
+
+- foo bar
+  baz
+- qux
+  https://a.really-long-url.example
+- https://a.really-long-url.example
+
+[1] https://a.really-long-url.example
+";
+        assert_eq!(filter(10, &input), expected);
     }
 }
