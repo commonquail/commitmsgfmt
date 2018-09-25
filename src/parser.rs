@@ -10,7 +10,7 @@ pub struct ListIndent(pub String);
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Comment(String),
-    Reference(String),
+    Footnote(String, String),
     ListItem(ListIndent, ListType, String),
     Literal(String),
     Paragraph(String),
@@ -27,7 +27,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut has_scissors = false;
     let lines = input.lines();
     let blank_or_empty = Regex::new(r"^\s*$").unwrap();
-    let reference = Regex::new(r"^\[[^]]+\]:? .+$").unwrap();
+    let footnote = Regex::new(r"^\[[^]]+\]:? .+$").unwrap();
     let trailer = Regex::new(r"^\p{Alphabetic}[-\w]+: .+$").unwrap();
     let indented = Regex::new(r"^(?:\t| {4,})").unwrap();
     let list_item = Regex::new(
@@ -81,11 +81,20 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
         } else if !has_subject {
             parse_subject(line, &mut toks);
             has_subject = true;
-        } else if reference.is_match(line) {
-            toks.push(Token::Reference(line.to_owned()));
+        } else if footnote.is_match(line) {
+            debug_assert!(footnote.as_str().contains(' '));
+            let mut splitter = line.splitn(2, ' ');
+            let key = splitter.next().unwrap().to_owned();
+            let rest = splitter.next().unwrap().trim().to_owned();
+            toks.push(Token::Footnote(key, rest));
         } else if trailer.is_match(line) {
             toks.push(Token::Trailer(line.to_owned()));
         } else if let Some(y) = match toks.last_mut() {
+            Some(&mut Token::Footnote(_, ref mut b)) => {
+                b.push(' ');
+                b.push_str(line.trim());
+                None
+            }
             Some(&mut Token::Paragraph(ref mut b)) => {
                 b.push(' ');
                 b.push_str(line.trim());
@@ -489,20 +498,21 @@ Signed-off-by: Jane Doe <jane@doe.com>
     }
 
     #[test]
-    fn references_are_left_bracket_ident_right_bracket_space_text() {
+    fn footnotes_are_left_bracket_ident_right_bracket_space_text() {
         assert_eq!(
             parse(
                 "
 subject
 
-[1] reference
-[re-fe] rence
+[1] footnote
+[fo-ot] note
+[ä] multi-code-point footnote key
 
-[@]:    reference
+[@]:    footnote
 
-[] not a reference
+[] not a footnote
 
-[1]not a reference
+[1]not a footnote
 
 [1] 
 "
@@ -511,14 +521,18 @@ subject
                 VerticalSpace,
                 Subject("subject".to_owned()),
                 VerticalSpace,
-                Reference("[1] reference".to_owned()),
-                Reference("[re-fe] rence".to_owned()),
+                Footnote("[1]".to_owned(), "footnote".to_owned()),
+                Footnote("[fo-ot]".to_owned(), "note".to_owned()),
+                Footnote(
+                    "[ä]".to_owned(),
+                    "multi-code-point footnote key".to_owned()
+                ),
                 VerticalSpace,
-                Reference("[@]:    reference".to_owned()),
+                Footnote("[@]:".to_owned(), "footnote".to_owned()),
                 VerticalSpace,
-                Paragraph("[] not a reference".to_owned()),
+                Paragraph("[] not a footnote".to_owned()),
                 VerticalSpace,
-                Paragraph("[1]not a reference".to_owned()),
+                Paragraph("[1]not a footnote".to_owned()),
                 VerticalSpace,
                 Paragraph("[1]".to_owned()),
             ],
@@ -526,7 +540,7 @@ subject
     }
 
     #[test]
-    fn reference_order_is_unchanged() {
+    fn footnote_order_is_unchanged() {
         // Naive solution is technically trivial but may not match semantics.
         assert_eq!(
             parse(
@@ -543,20 +557,16 @@ subject
                 VerticalSpace,
                 Subject("subject".to_owned()),
                 VerticalSpace,
-                Reference("[2] bar".to_owned()),
-                Reference("[b] a".to_owned()),
-                Reference("[a] b".to_owned()),
-                Reference("[1] foo".to_owned()),
+                Footnote("[2]".to_owned(), "bar".to_owned()),
+                Footnote("[b]".to_owned(), "a".to_owned()),
+                Footnote("[a]".to_owned(), "b".to_owned()),
+                Footnote("[1]".to_owned(), "foo".to_owned()),
             ],
         );
     }
 
     #[test]
-    fn bug_references_are_single_line_only() {
-        // Some references are prose and should be treated accordingly.
-        // Regrettably this clashes with references that should not wrap. Maybe
-        // fixable by identifying unwrappable words instead of unwrappable
-        // lines.
+    fn footnotes_may_span_multiple_lines() {
         assert_eq!(
             parse(
                 "
@@ -564,21 +574,26 @@ subject
 
 [1] foo
 bar
+[2] foo
+    bar
+[3] foo
+        bar
 "
             ),
             [
                 VerticalSpace,
                 Subject("subject".to_owned()),
                 VerticalSpace,
-                Reference("[1] foo".to_owned()),
-                Paragraph("bar".to_owned()),
+                Footnote("[1]".to_owned(), "foo bar".to_owned()),
+                Footnote("[2]".to_owned(), "foo bar".to_owned()),
+                Footnote("[3]".to_owned(), "foo bar".to_owned()),
             ],
         );
     }
 
     #[test]
-    fn bug_reference_idents_are_not_disambiguated() {
-        // Nice-to-have but not really our job. Requires tracking all references
+    fn bug_footnote_idents_are_not_disambiguated() {
+        // Nice-to-have but not really our job. Requires tracking all footnotes.
         assert_eq!(
             parse(
                 "
@@ -592,8 +607,8 @@ subject
                 VerticalSpace,
                 Subject("subject".to_owned()),
                 VerticalSpace,
-                Reference("[1] foo".to_owned()),
-                Reference("[1] bar".to_owned()),
+                Footnote("[1]".to_owned(), "foo".to_owned()),
+                Footnote("[1]".to_owned(), "bar".to_owned()),
             ],
         );
     }

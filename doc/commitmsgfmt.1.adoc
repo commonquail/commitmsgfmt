@@ -100,12 +100,11 @@ not a hard rule, and {self} tries not be a stick.
 
 Except for the subject line, items can appear in any order.
 
-=== Reference
+=== Footnotes
 
 A line that starts with a left bracket (*[*) followed by one or more
 non-whitespace characters, a right bracket (*]*), an optional colon (*:*), and
-a space is considered a _reference_, similar in style to the one IEEE
-whitepapers often use:
+a space is considered a _footnote_:
 
 ----
 Official Git Web site [1][git]
@@ -114,10 +113,13 @@ Official Git Web site [1][git]
 [git]: https://git-scm.com/
 ----
 
-References are not wrapped, on account of frequently being URLs. References are
-not considered to have a natural order and correspondingly are not sorted, and
-the identifier between the brackets is not cross-checked with the rest of the
-message.
+This syntax is inspired by the IEEE whitepaper reference style.
+
+Footnotes are wrapped like _paragraphs_, with continuation lines space-indented
+to match the first line. Additional spaces after the mandatory space are
+stripped. Footnotes are not considered to have a natural order and
+correspondingly are not sorted, and the identifier between the brackets is not
+cross-checked with the rest of the message.
 
 === Trailer
 
