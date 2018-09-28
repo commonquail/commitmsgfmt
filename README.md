@@ -36,8 +36,8 @@ In summary, `commitmsgfmt`
 - properly indents continuation lines in numbered and unnumbered lists,
   recognizing several different list styles;
 
-- exempts comments; text indented at least 4 spaces or 1 tab; "trailers"
-  (`Signed-off-by:`); and IEEE-style references from reformatting;
+- exempts comments; text indented at least 4 spaces or 1 tab; and "trailers"
+  (`Signed-off-by:`);
 
 - assumes UTF-8 encoded input but can gracefully degrade to ISO-8859-1
   ("latin1") which has been observed in the Linux kernel;

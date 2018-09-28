@@ -51,7 +51,14 @@ impl CommitMsgFmt {
                     self.wrap_paragraph_into(&mut buf, &p, None);
                     buf.push('\n');
                 }
-                Reference(ref s) | Subject(ref s) | Trailer(ref s) => {
+                Footnote(ref key, ref rest) => {
+                    buf.push_str(&key);
+                    buf.push(' ');
+                    let continuation = " ".repeat(key.graphemes(true).count() + 1);
+                    self.wrap_paragraph_into(&mut buf, &rest.trim(), Some(&continuation));
+                    buf.push('\n');
+                }
+                Subject(ref s) | Trailer(ref s) => {
                     buf.push_str(s.as_str());
                     buf.push('\n');
                 }
@@ -177,20 +184,37 @@ foo
     }
 
     #[test]
-    fn formats_references() {
-        // References don't wrap. Many are just URLs, which don't wrap nicely,
-        // or short sentences that don't qualify for wrapping, but some
-        // references are entire paragraphs of prose and ought to be wrapped.
-        // See: git -C ../git/ log --format=%b | grep '^\[[^]]\+\] '
+    fn formats_footnotes() {
         let msg = "
 foo
 
 [2] note
 [1] note
-[reference] reference extending beyond line-wrapping limit
+[3]    foo bar baz qux https://a.really-long-url.example
+[4] https://a.really-long-url.example
+[footnote] footnote extending
+   beyond line-wrapping
+            limit
+[ä] multi-code-point footnote key
+";
+        let expected = "
+foo
+
+[2] note
+[1] note
+[3] foo bar baz qux
+    https://a.really-long-url.example
+[4] https://a.really-long-url.example
+[footnote] footnote
+           extending
+           beyond
+           line-wrapping
+           limit
+[ä] multi-code-point
+    footnote key
 ";
 
-        assert_eq!(filter(10, &msg), msg, "print references literally");
+        assert_eq!(filter(20, &msg), expected);
     }
 
     #[test]

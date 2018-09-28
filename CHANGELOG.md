@@ -11,6 +11,10 @@ understanding of patterns often seen in commit messages.
   place, and breaking is actively detrimental to URLs. This change alone yields
   a 6-8 times speed-up as reported by `time(1)`.
 
+- _References_ may span multiple lines, subsequent lines following the same
+  indentation rules as _list items_. The syntactical unit has been renamed to
+  _footnote_ to better capture the new functionality.
+
 ## 1.1.0 - 2018-08-25
 
 - #3: If the `core.commentChar` setting is set to an explicit character, use
