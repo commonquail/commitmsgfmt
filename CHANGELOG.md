@@ -3,7 +3,7 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
-## Unreleased
+## 1.2.0 - 2018-09-28
 
 - When wrapping a line, only do so at the last space before the line length
   limit; do not break any words to remain within the limit. "Words" that extend
