@@ -144,8 +144,7 @@ Some text is exempt from wrapping:
   behaviour necessitates a laxer limit on its length to avoid rejecting too
   many valid subjects.
 
-- Text indented at least 4 spaces or 1 tab; trailers; and lines beginning with
-  "[<alnum>]" are printed unchanged."#,
+- Text indented at least 4 spaces or 1 tab, and trailers, are printed unchanged."#,
                 ).value_name("WIDTH"),
         ).get_matches();
 
