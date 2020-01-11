@@ -3,6 +3,13 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
+## Unreleased
+
+- If the subject line matches a prefix recognized by `git rebase --autosquash`
+  (`fixup! ` or `squash! `), preserve it in its entirety. Format the rest of
+  the message as usual; it may be that the user is annotating the "fixup"
+  commit for review purposes.
+
 ## 1.2.0 - 2018-09-28
 
 - When wrapping a line, only do so at the last space before the line length

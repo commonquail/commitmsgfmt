@@ -98,6 +98,9 @@ the subject. The choice of 90 is largely arbitrary. The limit is not 50, as
 often suggested, because the subject line limit is supposed to be a guideline,
 not a hard rule, and {self} tries not be a stick.
 
+In the special case where the subject line matches a prefix recognized by *git
+rebase --autosquash* the subject line will be left completely unmodified.
+
 Except for the subject line, items can appear in any order.
 
 === Footnotes

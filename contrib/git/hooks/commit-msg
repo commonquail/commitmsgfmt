@@ -1,14 +1,8 @@
 #!/bin/sh
 
 # This hook script formats the commit message named by the first argument,
-# unless
-#
-# 1) we are merging, or
-# 2) the subject starts with "squash!" or "fixup!"
-#
-# in which case the hook does nothing. The latter must not have the message
-# reformatted and the former often uses constructs that are difficult to guess
-# correctly.
+# unless we are merging, in which case the hook does nothing; merges often use
+# constructs that are difficult to guess correctly.
 #
 # The hook does not run when rebasing except for during user actions that
 # explicitly trigger commit message editing (the "reword" or "squash" actions,
@@ -22,11 +16,6 @@
 # Requires commitmsgfmt(1) in $PATH.
 
 msg="$1"
-
-if expr "$(head -1 "$msg")" : '^\(fixup\|squash\)! ' >/dev/null; then
-    exit 0
-fi
-
 dot_git="$(dirname "$msg")"
 
 [ ! -f "$dot_git/MERGE_HEAD" ] || exit 0

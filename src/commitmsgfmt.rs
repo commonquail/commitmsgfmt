@@ -125,6 +125,31 @@ ffffffffff
     }
 
     #[test]
+    fn preserves_autosquash_subject_line() {
+        let original_subject = "f".repeat(100);
+        let autosquash_subject = format!("fixup! {}", original_subject);
+        let input = format!(
+            "
+{subject}
+
+format
+this
+",
+            subject = autosquash_subject
+        );
+
+        let expected = format!(
+            "
+{subject}
+
+format this
+",
+            subject = autosquash_subject
+        );
+        assert_eq!(filter(72, &input), expected);
+    }
+
+    #[test]
     fn counts_line_length_by_graphemes() {
         let s = "
 ääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääë
