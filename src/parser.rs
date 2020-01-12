@@ -53,7 +53,8 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
         )
     # ... when the list item marker ends with at least one space.
     \s+)",
-    ).unwrap();
+    )
+    .unwrap();
     for line in lines {
         if has_scissors {
             match *toks.last_mut().expect("has_scissors") {
@@ -547,10 +548,7 @@ subject
                 VerticalSpace,
                 Footnote("[1]".to_owned(), "footnote".to_owned()),
                 Footnote("[fo-ot]".to_owned(), "note".to_owned()),
-                Footnote(
-                    "[ä]".to_owned(),
-                    "multi-code-point footnote key".to_owned()
-                ),
+                Footnote("[ä]".to_owned(), "multi-code-point footnote key".to_owned()),
                 VerticalSpace,
                 Footnote("[@]:".to_owned(), "footnote".to_owned()),
                 VerticalSpace,
@@ -845,7 +843,8 @@ do
  not
   format
  this
-"#.to_owned()
+"#
+                    .to_owned()
                 ),
             ],
         );

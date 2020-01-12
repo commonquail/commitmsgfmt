@@ -145,8 +145,10 @@ Some text is exempt from wrapping:
   many valid subjects.
 
 - Text indented at least 4 spaces or 1 tab, and trailers, are printed unchanged."#,
-                ).value_name("WIDTH"),
-        ).get_matches();
+                )
+                .value_name("WIDTH"),
+        )
+        .get_matches();
 
     let cfg = Config::new(&m);
     if let Err(ref e) = cfg {
@@ -381,7 +383,8 @@ y
                 } else {
                     None
                 }
-            }).unwrap_or("head");
+            })
+            .unwrap_or("head");
 
         let output = Command::new("bash")
             .args(&[
@@ -394,7 +397,8 @@ y
                     cargo_run_cmd("72").join(" "),
                     gnu_head
                 ),
-            ]).stdin(Stdio::piped())
+            ])
+            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .output()
             .expect("trigger broken pipe for debug binary");

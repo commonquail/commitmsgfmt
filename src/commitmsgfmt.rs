@@ -156,14 +156,18 @@ format this
 
 öööö ü";
 
-        assert_eq!(filter(5, &s), "
+        assert_eq!(
+            filter(5, &s),
+            "
 ääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääää
 
 ë
 
 öööö
 ü
-", "break before every changing grapheme");
+",
+            "break before every changing grapheme"
+        );
     }
 
     #[test]
