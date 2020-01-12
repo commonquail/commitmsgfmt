@@ -29,6 +29,8 @@ matrix:
   allow_failures:
     # japaric/trust#101
     - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
+    # Now also FreeBSD -- although NetBSD seems to have started working...?
+    - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
 
 before_install:
   - set -e
