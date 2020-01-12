@@ -3,7 +3,7 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
-## Unreleased
+## 1.3.0 - 2020-01-12
 
 - If the subject line matches a prefix recognized by `git rebase --autosquash`
   (`fixup! ` or `squash! `), preserve it in its entirety. Format the rest of
