@@ -137,7 +137,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
 const SUBJECT_CHAR_LIMIT: usize = 90;
 
 fn parse_subject(line: &str, toks: &mut Vec<Token>) {
-    let line = line.trim_left();
+    let line = line.trim_start();
     // If the subject has an autosquash pattern, return immediately. The
     // referenced commit may predate commitmsgfmt's rules so don't clean up the
     // end either.
@@ -161,7 +161,7 @@ fn parse_subject(line: &str, toks: &mut Vec<Token>) {
             },
         };
 
-        let subject = subject.trim_right_matches(|c| c == '.' || char::is_whitespace(c));
+        let subject = subject.trim_end_matches(|c| c == '.' || char::is_whitespace(c));
         (subject, rest)
     };
 
@@ -169,7 +169,7 @@ fn parse_subject(line: &str, toks: &mut Vec<Token>) {
     toks.push(Token::VerticalSpace);
 
     if let Some(rest) = rest {
-        let rest = rest.trim_left_matches('.');
+        let rest = rest.trim_start_matches('.');
         if !rest.is_empty() {
             toks.push(Token::Paragraph(rest.trim().to_owned()));
         }
@@ -250,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn parses_subject_trimming_left() {
+    fn parses_subject_trimming_start() {
         assert_eq!(parse(" # foo"), [Subject("# foo".to_owned())]);
     }
 
