@@ -137,23 +137,33 @@ const SUBJECT_CHAR_LIMIT: usize = 90;
 
 fn parse_subject(line: &str, toks: &mut Vec<Token>) {
     let line = line.trim_left();
-    // If the subject fits, return immediately.
+    // If the subject has an autosquash pattern, return immediately. The
+    // referenced commit may predate commitmsgfmt's rules so don't clean up the
+    // end either.
+    // Otherwise, if it fits, proceed.
     // If it's too long, break it at the first period.
     // If there is no period within the limit, just break at the limit.
     // We don't bother with spaces because at this point we can't break nicely.
-    let one_past_end = line.grapheme_indices(true).nth(SUBJECT_CHAR_LIMIT);
-    let (subject, rest) = match one_past_end {
-        None => (line, None),
-        Some((limit, _)) => match line.find('.') {
-            Some(period) if period < limit => (&line[..period], Some(&line[period + 1..])),
-            Some(_) | None => {
-                let (s, r) = line.split_at(limit);
-                (s, Some(r))
-            }
-        },
+    let is_autosquash = line.starts_with("fixup! ") || line.starts_with("squash! ");
+    let (subject, rest) = if is_autosquash {
+        (line, None)
+    } else {
+        let one_past_end = line.grapheme_indices(true).nth(SUBJECT_CHAR_LIMIT);
+        let (subject, rest) = match one_past_end {
+            None => (line, None),
+            Some((limit, _)) => match line.find('.') {
+                Some(period) if period < limit => (&line[..period], Some(&line[period + 1..])),
+                Some(_) | None => {
+                    let (s, r) = line.split_at(limit);
+                    (s, Some(r))
+                }
+            },
+        };
+
+        let subject = subject.trim_right_matches(|c| c == '.' || char::is_whitespace(c));
+        (subject, rest)
     };
 
-    let subject = subject.trim_right_matches(|c| c == '.' || char::is_whitespace(c));
     toks.push(Token::Subject(subject.to_owned()));
     toks.push(Token::VerticalSpace);
 
@@ -270,6 +280,20 @@ mod tests {
                 Paragraph("bar".to_owned()),
             ],
         );
+    }
+
+    #[test]
+    fn parses_autosquash_subject_as_is() {
+        let original_subject = "f".repeat(SUBJECT_CHAR_LIMIT);
+        for autosquash_prefix in ["fixup", "squash"].iter() {
+            // Include punctuation test case, in case punctuation slipped into original_subject.
+            let autosquash_subject = format!(
+                "{prefix}! {subject}..",
+                prefix = autosquash_prefix,
+                subject = original_subject
+            );
+            assert_eq!(parse(&autosquash_subject), [Subject(autosquash_subject),],);
+        }
     }
 
     #[test]
