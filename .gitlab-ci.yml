@@ -1,4 +1,7 @@
-image: rust:1.41.1-stretch
+# https://launchpad.net/rustc
+# https://packages.debian.org/stable/rustc
+# https://software.opensuse.org/package/rust
+image: rust:1.48.0-buster
 
 rustfmt:
   script:
