@@ -66,12 +66,12 @@ impl fmt::Display for CliError {
 }
 
 impl Error for CliError {
-    fn description(&self) -> &str {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         match *self {
-            CliError::ArgWidthNaN(ref err) => err.description(),
-            CliError::ArgWidthOutOfBounds(_) => "--width out of bounds",
-            CliError::Io(ref err) => err.description(),
-            CliError::Other(ref err) => err,
+            CliError::ArgWidthNaN(ref err) => Some(err),
+            CliError::ArgWidthOutOfBounds(_) => None,
+            CliError::Io(ref err) => Some(err),
+            CliError::Other(_) => None,
         }
     }
 }
