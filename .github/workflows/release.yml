@@ -1,0 +1,182 @@
+name: release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+
+  # First register a new release we can attach files to. Record some details
+  # about it in shared-runner-artifacts so we can restore them in another job
+  # (environment variables and files are not otherwise shared).
+  create-release:
+    name: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create shared-runner-artifacts directory
+        run: mkdir artifacts
+
+      # Place the tag name in the environment so we can reference it in the
+      # next step.
+      # Yes, we really need to get the plain tag name like this. There are even
+      # dedicated actions for it.
+      # https://stackoverflow.com/a/58178121/482758
+      - name: Infer release version
+        run: printf 'RELEASE_VERSION=%s\n' "${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Publish new release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.RELEASE_VERSION }}
+          release_name: ${{ env.RELEASE_VERSION }}
+
+      # Now stick all the release details we want to preserve into an artifact.
+      - name: Prepare shared-runner-artifacts
+        run: |
+          printf '%s\n' "${{ steps.release.outputs.upload_url }}" > artifacts/release-url
+          printf '%s\n' "${{ env.RELEASE_VERSION }}" > artifacts/release-version
+
+      - name: Upload shared-runner-artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: shared-runner-artifacts
+          path: artifacts
+          retention-days: 1
+
+  build-package:
+    name: build-package
+    needs:
+      - create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build:
+          - linux
+          - macos
+          - win-gnu
+          - win-msvc
+        include:
+          # Build all releases on nightly for latest optimizations.
+          - build: linux
+            os: ubuntu-18.04
+            rust: nightly
+            target: x86_64-unknown-linux-musl
+            binary_ext:
+
+          - build: macos
+            os: macos-latest
+            rust: nightly
+            target: x86_64-apple-darwin
+            binary_ext:
+
+          - build: win-gnu
+            os: windows-2019
+            rust: nightly-x86_64-gnu
+            target: x86_64-pc-windows-gnu
+            binary_ext: .exe
+
+          - build: win-msvc
+            os: windows-2019
+            rust: nightly
+            target: x86_64-pc-windows-msvc
+            binary_ext: .exe
+    env:
+      # Backtraces for panics.
+      RUST_BACKTRACE: 1
+      TARGET_FLAGS:
+      TARGET_DIR: ./target
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # In each parallel build, restore the common details we prepared earlier.
+      - name: Download shared-runner-artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: shared-runner-artifacts
+          path: artifacts
+
+      - name: Prepare environment
+        shell: bash
+        run: |
+          read -r release_url < artifacts/release-url
+          read -r release_version < artifacts/release-version
+          printf 'TARGET_FLAGS=--target %s\n' "${{ matrix.target }}" >> $GITHUB_ENV
+          printf 'TARGET_DIR=./target/${{ matrix.target }}\n' >> $GITHUB_ENV
+          printf 'RELEASE_URL=%s\n' "$release_url" >> $GITHUB_ENV
+          printf 'RELEASE_VERSION=%s\n' "$release_version" >> $GITHUB_ENV
+          printf 'RELEASE_BINARY=%s\n' "target/${{ matrix.target }}/release/commitmsgfmt${{ matrix.binary_ext }}" >> $GITHUB_ENV
+
+      # So much cruft just to install Asciidoctor.
+      # It's possible to do something like
+      #   run: ./ci/install-${{ matrix.os }}
+      # but I couldn't get Windows to do anything that way.
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-18.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            asciidoctor
+
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-2019'
+        run: gem install asciidoctor
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install asciidoctor
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Install Cross
+        run: cargo install cross
+
+      - name: Build release
+        run: cross build --verbose --release ${{ env.TARGET_FLAGS }}
+
+      - name: Strip release binary
+        if: matrix.build == 'linux' || matrix.build == 'macos'
+        run: strip "${{ env.RELEASE_BINARY }}"
+
+      - name: Assemble package
+        shell: bash
+        run: |
+          package="commitmsgfmt-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
+          mkdir -p "$package"
+
+          asciidoctor --doctype manpage --backend manpage "doc/*.adoc"
+          cp "doc/commitmsgfmt.1" "$package"
+          cp LICENSE.txt "$package"
+          cp README.md "$package"
+          cp CHANGELOG.md "$package"
+          cp -r contrib "$package"
+          cp "${{ env.RELEASE_BINARY }}" "$package"
+
+          if [[ "${{ matrix.os }}" = 'windows-2019' ]]
+          then
+            7z a "$package.zip" "$package"
+            printf 'ASSET=%s\n' "$package.zip" >> $GITHUB_ENV
+          else
+            tar caf "$package.tar.gz" "$package"
+            printf 'ASSET=%s\n' "$package.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Upload package
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.RELEASE_URL }}
+          asset_path: ${{ env.ASSET }}
+          asset_name: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream

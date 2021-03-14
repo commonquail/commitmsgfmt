@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  test:
+    name: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build:
+          # MSRV, stable, and next.
+          - pinned
+          - stable
+          - nightly
+          # Use nightly for these because that's what release does.
+          - win-msvc
+          - macos
+        include:
+          - build: pinned
+            os: ubuntu-18.04
+            rust: 1.41.1
+
+          - build: stable
+            os: ubuntu-18.04
+            rust: stable
+
+          - build: nightly
+            os: ubuntu-18.04
+            rust: nightly
+
+          - build: win-msvc
+            os: windows-2019
+            rust: nightly
+
+          - build: macos
+            os: macos-latest
+            rust: nightly
+    env:
+      # Backtraces for panics.
+      RUST_BACKTRACE: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Test
+        run: cargo test --verbose

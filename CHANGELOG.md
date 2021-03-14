@@ -3,6 +3,13 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
+## Unreleased
+
+- Build release binaries with GitHub Actions instead of Travis CI and AppVeyor
+  and remove the now obsolete Travis CI and AppVeyor integrations. This change
+  restores precompiled macOS and Windows binaries. BSD binaries are likely gone
+  for good but rarely compiled successfully on Travis CI anyway.
+
 ## 1.3.0 - 2020-01-12
 
 - If the subject line matches a prefix recognized by `git rebase --autosquash`
