@@ -1,5 +1,11 @@
 image: rust:1.41.1-stretch
 
+rustfmt:
+  script:
+    - rustup component add rustfmt
+    - cargo fmt -- --version
+    - cargo fmt -- --check
+
 test:
   script:
     - rustc --version && cargo --version
