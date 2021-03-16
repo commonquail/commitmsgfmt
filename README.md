@@ -74,8 +74,8 @@ a best-effort basis:
 https://github.com/commonquail/commitmsgfmt/releases
 
 The Linux binaries are static executables. The Windows binaries are built with
-either MinGW or Microsoft Visual C++; the latter is better but requires
-a separate installation of the Microsoft VC++ redistributable [[vc-redist]].
+Microsoft Visual C++ and require a separate installation of the Microsoft VC++
+redistributable [[vc-redist]].
 
 Alternatively, if you have a working Rust environment you can build the binary
 from scratch with `cargo build --release`.
