@@ -7,23 +7,20 @@ on:
 
 jobs:
 
-  # First register a new release we can attach files to. Record some details
-  # about it in shared-runner-artifacts so we can restore them in another job
-  # (environment variables and files are not otherwise shared).
+  # First register a new release we can attach files to.
   create-release:
     name: create-release
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release_version.outputs.version }}
+      upload_url: ${{ steps.release.outputs.upload_url }}
     steps:
-      - name: Create shared-runner-artifacts directory
-        run: mkdir artifacts
-
-      # Place the tag name in the environment so we can reference it in the
-      # next step.
       # Yes, we really need to get the plain tag name like this. There are even
       # dedicated actions for it.
       # https://stackoverflow.com/a/58178121/482758
-      - name: Infer release version
-        run: printf 'RELEASE_VERSION=%s\n' "${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+      - name: Share release version
+        id: release_version
+        run: printf '::set-output name=version::%s\n' "${GITHUB_REF#refs/tags/}"
 
       - name: Publish new release
         id: release
@@ -31,21 +28,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.RELEASE_VERSION }}
-          release_name: ${{ env.RELEASE_VERSION }}
-
-      # Now stick all the release details we want to preserve into an artifact.
-      - name: Prepare shared-runner-artifacts
-        run: |
-          printf '%s\n' "${{ steps.release.outputs.upload_url }}" > artifacts/release-url
-          printf '%s\n' "${{ env.RELEASE_VERSION }}" > artifacts/release-version
-
-      - name: Upload shared-runner-artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: shared-runner-artifacts
-          path: artifacts
-          retention-days: 1
+          tag_name: ${{ steps.release_version.outputs.version }}
+          release_name: ${{ steps.release_version.outputs.version }}
 
   build-package:
     name: build-package
@@ -82,22 +66,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      # In each parallel build, restore the common details we prepared earlier.
-      - name: Download shared-runner-artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: shared-runner-artifacts
-          path: artifacts
-
       - name: Prepare environment
         shell: bash
         run: |
-          read -r release_url < artifacts/release-url
-          read -r release_version < artifacts/release-version
           printf 'TARGET_FLAGS=--target %s\n' "${{ matrix.target }}" >> $GITHUB_ENV
           printf 'TARGET_DIR=./target/${{ matrix.target }}\n' >> $GITHUB_ENV
-          printf 'RELEASE_URL=%s\n' "$release_url" >> $GITHUB_ENV
-          printf 'RELEASE_VERSION=%s\n' "$release_version" >> $GITHUB_ENV
+          printf 'RELEASE_URL=%s\n' "${{ needs.create-release.outputs.upload_url }}" >> $GITHUB_ENV
+          printf 'RELEASE_VERSION=%s\n' "${{ needs.create-release.outputs.version }}" >> $GITHUB_ENV
           printf 'RELEASE_BINARY=%s\n' "target/${{ matrix.target }}/release/commitmsgfmt${{ matrix.binary_ext }}" >> $GITHUB_ENV
 
       # So much cruft just to install Asciidoctor.
