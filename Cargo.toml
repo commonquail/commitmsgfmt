@@ -8,6 +8,7 @@ homepage = "https://gitlab.com/mkjeldsen/commitmsgfmt"
 repository = "https://gitlab.com/mkjeldsen/commitmsgfmt"
 readme = "README.md"
 license = "Apache-2.0"
+edition = "2018"
 
 [dependencies]
 regex = "1.4.4"

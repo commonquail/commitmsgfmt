@@ -1,6 +1,6 @@
-use parser::parse;
-use parser::Token;
-use parser::Token::*;
+use crate::parser::parse;
+use crate::parser::Token;
+use crate::parser::Token::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct CommitMsgFmt {

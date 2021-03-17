@@ -1,12 +1,6 @@
-#[macro_use]
-extern crate clap;
-extern crate encoding;
-#[cfg(test)]
-#[macro_use]
-extern crate pretty_assertions;
-extern crate regex;
-extern crate unicode_segmentation;
-
+use clap::crate_description;
+use clap::crate_name;
+use clap::crate_version;
 use clap::App;
 use clap::Arg;
 use clap::ArgMatches;
@@ -195,7 +189,7 @@ fn from_iso_8859_1(bytes: &[u8]) -> CliResult<String> {
 }
 
 fn to_stdout(msg: &str) -> CliResult<()> {
-    use io::Write;
+    use crate::io::Write;
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     stdout.write_all(msg.as_bytes())?;
