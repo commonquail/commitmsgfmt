@@ -206,6 +206,9 @@ fn fatal(e: &CliError) {
 mod tests {
     use super::*;
 
+    use pretty_assertions::assert_eq;
+    use pretty_assertions::assert_ne;
+
     use std::process::Child;
     use std::process::Command;
     use std::process::Stdio;
