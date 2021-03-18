@@ -189,7 +189,7 @@ fn from_iso_8859_1(bytes: &[u8]) -> CliResult<String> {
 }
 
 fn to_stdout(msg: &str) -> CliResult<()> {
-    use crate::io::Write;
+    use std::io::Write;
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     stdout.write_all(msg.as_bytes())?;
