@@ -102,7 +102,6 @@ mod tests {
     use super::*;
 
     use pretty_assertions::assert_eq;
-    use pretty_assertions::assert_ne;
 
     fn filter(w: usize, s: &str) -> String {
         CommitMsgFmt::new(w, '#').filter(&s)

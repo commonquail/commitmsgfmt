@@ -193,7 +193,6 @@ mod tests {
     use super::*;
 
     use pretty_assertions::assert_eq;
-    use pretty_assertions::assert_ne;
 
     fn parse(s: &str) -> Vec<Token> {
         super::parse(s, '#')
