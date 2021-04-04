@@ -4,7 +4,9 @@ use crate::parser::Token::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct CommitMsgFmt {
+    /// Max width of the message body; not used for the subject line.
     width: usize,
+    /// The character that identifies a comment when used in column 0 of a line.
     comment_char: char,
 }
 
@@ -71,7 +73,7 @@ impl CommitMsgFmt {
 
     fn wrap_paragraph_into(&self, buf: &mut String, paragraph: &str, continuation: Option<&str>) {
         let limit = match continuation {
-            Some(ref c) => self.width - c.len(),
+            Some(ref c) => self.width.checked_sub(c.len()).unwrap_or(0),
             None => self.width,
         };
         let mut cur_line_len = 0;
@@ -323,6 +325,25 @@ foo
 ";
 
         assert_eq!(filter(34, &input), expected);
+    }
+
+    #[test]
+    fn tolerates_continuation_longer_than_body_width() {
+        // If a continuation is longer than the requested body width it is
+        // impossible to wrap a footnote to within said width. Instead just
+        // break up the footnote as aggressively as possible.
+        let input = "
+foo
+
+[1] note note
+";
+        let expected = "
+foo
+
+[1] note
+    note
+";
+        assert_eq!(filter(3, &input), expected);
     }
 
     #[test]
