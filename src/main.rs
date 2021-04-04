@@ -11,6 +11,7 @@ use std::num::ParseIntError;
 
 mod commitmsgfmt;
 mod parser;
+mod worditer;
 
 type CliResult<T> = Result<T, CliError>;
 

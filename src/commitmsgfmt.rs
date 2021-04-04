@@ -1,6 +1,7 @@
 use crate::parser::parse;
 use crate::parser::Token;
 use crate::parser::Token::*;
+use crate::worditer::WordIter;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct CommitMsgFmt {
@@ -77,7 +78,7 @@ impl CommitMsgFmt {
             None => self.width,
         };
         let mut cur_line_len = 0;
-        for word in paragraph.split(' ') {
+        for word in WordIter::new(&paragraph) {
             let word_len = word.graphemes(true).count();
 
             // Not a new line so we need to fiddle with whitespace.
