@@ -78,7 +78,7 @@ impl CommitMsgFmt {
             None => self.width,
         };
         let mut cur_line_len = 0;
-        for word in WordIter::new(&paragraph) {
+        for word in WordIter::new(&paragraph, self.comment_char) {
             let word_len = word.graphemes(true).count();
 
             // Not a new line so we need to fiddle with whitespace.
@@ -550,5 +550,31 @@ https://a.really-long-url.example
 [1] https://a.really-long-url.example
 ";
         assert_eq!(filter(10, &input), expected);
+    }
+
+    #[test]
+    fn does_not_break_non_breaking_words() {
+        let input = "
+foo
+
+foo #1 bar [1][qux] [2] baz -- wup
+
+[1] note
+[qux] note
+[2] note
+";
+        let expected = "
+foo
+
+foo #1
+bar [1][qux] [2]
+baz --
+wup
+
+[1] note
+[qux] note
+[2] note
+";
+        assert_eq!(filter(2, &input), expected);
     }
 }
