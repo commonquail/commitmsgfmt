@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::borrow::Cow;
 
 /// An iterator over "words" in some text. A word is generally a sequence of non-whitespace
 /// characters bounded by either whitespace characters or the empty string. However, this is not a
@@ -37,7 +38,7 @@ impl<'text> WordIter<'text> {
 }
 
 impl<'text> Iterator for WordIter<'text> {
-    type Item = String;
+    type Item = Cow<'text, str>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let word_start = self.next_word.or_else(|| self.naive_words.next());
@@ -45,13 +46,12 @@ impl<'text> Iterator for WordIter<'text> {
             return None;
         }
 
-        let word_start = word_start.unwrap();
-        let mut non_breaking_word = String::with_capacity(word_start.len() + 4);
-        non_breaking_word.push_str(word_start);
+        let mut non_breaking_word = Cow::Borrowed(word_start.unwrap());
 
         self.next_word = self.naive_words.next();
         while let Some(word) = self.next_word {
             if self.is_non_breaking_word(&word) {
+                let non_breaking_word = non_breaking_word.to_mut();
                 non_breaking_word.push(' ');
                 non_breaking_word.push_str(word);
             } else if word.is_empty() {
@@ -156,8 +156,8 @@ mod tests {
     fn merges_comment_char() {
         let comment_char = some_comment_char();
 
+        let text = format!("a {}1b d", comment_char);
         let res = {
-            let text = format!("a {}1b d", comment_char);
             let it = WordIter::new(&text, comment_char);
             collect(it)
         };
@@ -192,8 +192,8 @@ mod tests {
         //   first token -- this is the least surprising heuristic we can apply.
         let comment_char = some_comment_char();
 
+        let text = format!("a {} b", comment_char);
         let res = {
-            let text = format!("a {} b", comment_char);
             let it = WordIter::new(&text, comment_char);
             collect(it)
         };
