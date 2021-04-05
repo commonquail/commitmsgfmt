@@ -3,7 +3,7 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
-## Unreleased
+## 1.4.1 - 2021-04-05
 
 - Fix an errant man page header accidentally added in v1.4.0.
 

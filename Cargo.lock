@@ -67,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "commitmsgfmt"
-version = "1.4.0-GIT"
+version = "1.4.1"
 dependencies = [
  "clap",
  "encoding",
