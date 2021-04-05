@@ -89,7 +89,7 @@ those cases and avoid them by preventing wrapping: it will
 * never break a line immediately before an _en_--dash, which would cause a
   distraction after the pause from refocusing after the line break;
 
-* join a sequence footnote references to their preceding word, so the
+* join a sequence of footnote references to their preceding word, so the
   references both preserve their context and don't degenerate into _list
   items_;
 
