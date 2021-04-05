@@ -93,8 +93,6 @@ those cases and avoid them by preventing wrapping: it will
   references both preserve their context and don't degenerate into _list
   items_;
 
-==== Exceptions
-
 === Subject line
 
 {self} will recognize the first non-blank, non-comment line as the _subject

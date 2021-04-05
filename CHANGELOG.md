@@ -3,6 +3,10 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
+## Unreleased
+
+- Fix an errant man page header accidentally added in v1.4.0.
+
 ## 1.4.0 - 2021-04-05
 
 - #5: Prevent breaking lines between certain types of tokens. This increases
