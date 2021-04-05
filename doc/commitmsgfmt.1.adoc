@@ -3,7 +3,7 @@
 :man source: commitmsgfmt {version}
 :man manual: User Commands
 :self: pass:q[*commitmsgfmt*]
-:uri-algo: https://en.wikipedia.org/w/index.php?title=Line_wrap_and_word_wrap&oldid=838974524#Minimum_number_of_lines
+:uri-algo: \https://en.wikipedia.org/w/index.php?title=Line_wrap_and_word_wrap&oldid=838974524#Minimum_number_of_lines
 
 == Name
 
@@ -76,8 +76,8 @@ single word, or for instance a long URL--will not be wrapped. Indentation
 spaces are ignored in this context.
 
 {self} currently uses the traditional greedy _minimum number of lines_ wrapping
-algorithm{empty}footnoteref:[wrap-algo,{uri-algo}], like *fmt*(1) and Vim, for
-ease of implementation and performance comparability. This may change.
+algorithm{empty}footnote:wrap-algo[{uri-algo}], like *fmt*(1) and Vim, for ease
+of implementation and performance comparability. This may change.
 
 === Subject line
 
