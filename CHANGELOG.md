@@ -3,7 +3,7 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
-## Unreleased
+## 1.4.0 - 2021-04-05
 
 - #5: Prevent breaking lines between certain types of tokens. This increases
   safety by preventing a line break from accidentally creating a comment line,
