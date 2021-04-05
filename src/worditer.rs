@@ -74,6 +74,8 @@ impl<'text> Iterator for WordIter<'text> {
     }
 }
 
+impl std::iter::FusedIterator for WordIter<'_> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
