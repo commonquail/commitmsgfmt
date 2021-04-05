@@ -5,6 +5,9 @@ understanding of patterns often seen in commit messages.
 
 ## Unreleased
 
+- Fix an unlikely subtraction overflow error where a continuation line required
+  indentation beyond what the specified message body permitted.
+
 - Build release binaries with GitHub Actions instead of Travis CI and AppVeyor
   and remove the now obsolete Travis CI and AppVeyor integrations. This change
   restores precompiled macOS and Windows binaries. BSD binaries are likely gone
