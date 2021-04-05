@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 use clap::crate_description;
 use clap::crate_name;
 use clap::crate_version;
@@ -11,6 +14,7 @@ use std::num::ParseIntError;
 
 mod commitmsgfmt;
 mod parser;
+mod worditer;
 
 type CliResult<T> = Result<T, CliError>;
 

@@ -5,6 +5,11 @@ understanding of patterns often seen in commit messages.
 
 ## Unreleased
 
+- #5: Prevent breaking lines between certain types of tokens. This increases
+  safety by preventing a line break from accidentally creating a comment line,
+  and improves legibility by preserving some typographic constructs' context,
+  namely footnote references and _en_-dashes.
+
 - Fix an unlikely subtraction overflow error where a continuation line required
   indentation beyond what the specified message body permitted.
 

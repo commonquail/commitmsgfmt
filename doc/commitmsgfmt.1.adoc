@@ -68,8 +68,8 @@ counter-productive.
 
 Generally, any two consecutive lines will be considered to belong to the same
 _paragraph_. Paragraphs are wrapped at the last space up to *--width*
-graphemes. Paragraphs are surrounded by a single empty line, additional empty
-lines being removed.
+graphemes, with a few exceptions. Paragraphs are surrounded by a single empty
+line, additional empty lines being removed.
 
 A line that extends beyond *--width* but contains no space--effectively a
 single word, or for instance a long URL--will not be wrapped. Indentation
@@ -78,6 +78,22 @@ spaces are ignored in this context.
 {self} currently uses the traditional greedy _minimum number of lines_ wrapping
 algorithm{empty}footnote:wrap-algo[{uri-algo}], like *fmt*(1) and Vim, for ease
 of implementation and performance comparability. This may change.
+
+{self} has a notion of implicit non-breaking spaces. In some situations, the
+rules laid out above cause degenerative behavior. {self} attempts to detect
+those cases and avoid them by preventing wrapping: it will
+
+* never break a line immediately before the *core.commentChar* character, which
+  would cause the second line to degenerate into a _comment_;
+
+* never break a line immediately before an _en_--dash, which would cause a
+  distraction after the pause from refocusing after the line break;
+
+* join a sequence footnote references to their preceding word, so the
+  references both preserve their context and don't degenerate into _list
+  items_;
+
+==== Exceptions
 
 === Subject line
 
@@ -245,7 +261,7 @@ Given input
 
 ----
 subject
-foo bar baz [1]
+foo baar -- baz qux wupwupwup [1][2] [wup]
 
 - foo
 1. foo bar
@@ -253,6 +269,8 @@ baz
 2. https://www.url.example long word
 
 [1] abcdefghijklmnopq
+[2] footnote
+[wup] wup wup
 ----
 
 _commitmsgfmt --width 10_ will produce
@@ -260,8 +278,10 @@ _commitmsgfmt --width 10_ will produce
 ----
 subject
 
-foo bar
-baz [1]
+foo
+baar --
+baz qux
+wupwupwup [1][2] [wup]
 
 - foo
 1. foo bar
@@ -271,6 +291,9 @@ baz [1]
    word
 
 [1] abcdefghijklmnopq
+[2] footnote
+[wup] wup
+      wup
 ----
 
 == See also
