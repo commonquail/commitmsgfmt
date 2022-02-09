@@ -20,7 +20,17 @@ pub(crate) struct WordIter<'text> {
 }
 
 lazy_static! {
-    static ref FOOTNOTE_REFERENCE: Regex = Regex::new(r"^(?:\[[^]]+\])+$").unwrap();
+    static ref FOOTNOTE_REFERENCE: Regex = Regex::new(
+        r"(?x)
+        ^
+        # One or more unseparated '[any]' tokens...
+        (?:\[[^]]+\])+
+        # ... optionally immediately followed by any sort of punctuation, for
+        # example in case this is the end of the sentence.
+        (?:\p{Punctuation}*)
+        $"
+    )
+    .unwrap();
 }
 
 impl<'text> WordIter<'text> {
@@ -108,8 +118,8 @@ mod tests {
 
     #[test]
     fn smoke_ridiculous() {
-        let text = "a #1 #2 b [1][2] [3] [4]c d";
-        let expect = ["a #1 #2", "b [1][2] [3]", "[4]c", "d"];
+        let text = "a #1 #2 b [1][2] [3]. [4]c d";
+        let expect = ["a #1 #2", "b [1][2] [3].", "[4]c", "d"];
         let res = iter_collect(&text);
         assert_eq!(res, expect);
     }
@@ -184,7 +194,7 @@ mod tests {
         // as the preceding token:
         // - The comment character must join the preceding token to avoid being
         //   pushed onto its own line and accidentally degrading into a comment.
-        // - The token after the comment character cannot join the the preceding
+        // - The token after the comment character cannot join the preceding
         //   token because we have no way to determine that that token or any of
         //   the subsequent tokens should be individual words or parts of the
         //   first token -- this is the least surprising heuristic we can apply.
@@ -213,6 +223,23 @@ mod tests {
     fn merges_footnote_text_references() {
         let text = "a [foo] [bar] b";
         let expect = ["a [foo] [bar]", "b"];
+        let res = iter_collect(&text);
+        assert_eq!(res, expect);
+    }
+
+    #[test]
+    fn allows_punctuation_after_footnote_references() {
+        let text = "a [foo]. b [bar].:#,;![]() [x] c [baz] .# d [qux]   ... e [qaz]f";
+        let expect = [
+            "a [foo].",
+            "b [bar].:#,;![]() [x]",
+            "c [baz]",
+            ".#",
+            "d [qux]",
+            "...",
+            "e",
+            "[qaz]f",
+        ];
         let res = iter_collect(&text);
         assert_eq!(res, expect);
     }
