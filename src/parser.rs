@@ -55,6 +55,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     \s+)",
     )
     .unwrap();
+    let mut px = false;
     for line in lines {
         if has_scissors {
             match *toks.last_mut().expect("has_scissors") {
@@ -79,10 +80,12 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
             if toks.last() != Some(&Token::VerticalSpace) {
                 toks.push(Token::VerticalSpace);
             }
+            px = true;
         } else if !has_subject {
             parse_subject(line, &mut toks);
             has_subject = true;
-        } else if footnote.is_match(line) {
+            px = false;
+        } else if px && footnote.is_match(line) {
             debug_assert!(footnote.as_str().contains(' '));
             let mut splitter = line.splitn(2, ' ');
             let key = splitter.next().unwrap().to_owned();
@@ -118,6 +121,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
                     raw.push('\n'); // Recover linefeed lost from iterator.
                     Some(Token::Literal(raw))
                 } else {
+                    px = false;
                     Some(Token::Paragraph(line.trim().to_owned()))
                 }
             }
@@ -525,7 +529,7 @@ Signed-off-by: Jane Doe <jane@doe.com>
     }
 
     #[test]
-    fn footnotes_are_left_bracket_ident_right_bracket_space_text() {
+    fn footnotes_are_left_bracket_ident_right_bracket_space_text_distanced_from_paragraph() {
         assert_eq!(
             parse(
                 "
@@ -564,13 +568,18 @@ subject
     }
 
     #[test]
-    fn footnote_does_not_join_immediately_preceding_paragraph() {
+    fn footnote_cannot_follow_paragraph_immediately() {
         assert_eq!(
             parse(
                 "
 subject
 
-paragraph
+paragraph 1
+[1] not footnote 1
+[2] not footnote 2
+
+paragraph 2
+
 [1] footnote 1
 [2] footnote 2
 "
@@ -579,7 +588,10 @@ paragraph
                 VerticalSpace,
                 Subject("subject".to_owned()),
                 VerticalSpace,
-                Paragraph("paragraph".to_owned()),
+                Paragraph("paragraph 1 [1] not footnote 1 [2] not footnote 2".to_owned()),
+                VerticalSpace,
+                Paragraph("paragraph 2".to_owned()),
+                VerticalSpace,
                 Footnote("[1]".to_owned(), "footnote 1".to_owned()),
                 Footnote("[2]".to_owned(), "footnote 2".to_owned()),
             ],

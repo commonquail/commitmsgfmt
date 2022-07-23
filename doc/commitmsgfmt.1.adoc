@@ -128,10 +128,15 @@ a space is considered a _footnote_:
 Official Git Web site [1][git]
 
 [1] https://git-scm.com/
-[git]: https://git-scm.com/
+[git]: Git is a free and open source distributed version control system
+       designed to handle everything from small to very large projects
+       with speed and efficiency.
 ----
 
 This syntax is inspired by the IEEE whitepaper reference style.
+
+Multiple footnotes may follow each other immediately, however, the first
+footnote in any block of footnotes must be preceded by an empty line.
 
 Footnotes are wrapped like _paragraphs_, with continuation lines space-indented
 to match the first line. Additional spaces after the mandatory space are

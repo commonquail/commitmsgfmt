@@ -223,6 +223,7 @@ foo
 foo
 
 paragraph
+
 [2] note
 [1] note
 [3]    foo bar baz qux https://a.really-long-url.example
@@ -236,6 +237,7 @@ paragraph
 foo
 
 paragraph
+
 [2] note
 [1] note
 [3] foo bar baz qux
@@ -279,12 +281,11 @@ x [1]
 x [1].
 x [1] .
 
-yy [2] y
-[2] .
+yy [2]
+y [2] .
 
 zzz [3]
-z
-[3] .
+z [3] .
 
 www [4]
 w
