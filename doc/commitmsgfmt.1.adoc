@@ -86,8 +86,9 @@ those cases and avoid them by preventing wrapping: it will
 * never break a line immediately before the *core.commentChar* character, which
   would cause the second line to degenerate into a _comment_;
 
-* never break a line immediately before an _en_--dash, which would cause a
-  distraction after the pause from refocusing after the line break;
+* never break a line immediately before any sequence of punctuation, such as
+  _ellipses_ and _en_--dashes, which would cause a distraction after the pause
+  to refocus on the new line;
 
 * join a sequence of footnote references to their preceding word, so the
   references both preserve their context and don't degenerate into _list

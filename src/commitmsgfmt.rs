@@ -260,6 +260,7 @@ foo
 
 x [1] x
 [1].
+x [1] .
 
 yy [2] y
 [2] .
@@ -267,12 +268,16 @@ yy [2] y
 zzz [3]
 z
 [3] .
+
+www [4] w
+www [4] .
 ";
         let expected = "
 foo
 
 x [1]
 x [1].
+x [1] .
 
 yy [2] y
 [2] .
@@ -280,6 +285,10 @@ yy [2] y
 zzz [3]
 z
 [3] .
+
+www [4]
+w
+www [4] .
 ";
 
         assert_eq!(filter(8, &msg), expected);
