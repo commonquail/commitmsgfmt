@@ -12,6 +12,12 @@ understanding of patterns often seen in commit messages.
 - Extend the range of non-breakable tokens to include any sequence of ASCII
   punctuation. Previously `foo ...` could wrap; now it cannot.
 
+- Restrict the definition of footnotes to require a vertical space after
+  a preceding paragraph. This prevents footnote references that have ended up
+  at the start of a line from degenerating into footnotes. That is, previously
+  `foo\n[1] bar` would be a paragraph followed by a footnote whereas now it is
+  a single paragraph containing a footnote reference.
+
 ## 1.4.1 - 2021-04-05
 
 - Fix an errant man page header accidentally added in v1.4.0.
