@@ -564,6 +564,29 @@ subject
     }
 
     #[test]
+    fn footnote_does_not_join_immediately_preceding_paragraph() {
+        assert_eq!(
+            parse(
+                "
+subject
+
+paragraph
+[1] footnote 1
+[2] footnote 2
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject".to_owned()),
+                VerticalSpace,
+                Paragraph("paragraph".to_owned()),
+                Footnote("[1]".to_owned(), "footnote 1".to_owned()),
+                Footnote("[2]".to_owned(), "footnote 2".to_owned()),
+            ],
+        );
+    }
+
+    #[test]
     fn footnote_order_is_unchanged() {
         // Naive solution is technically trivial but may not match semantics.
         assert_eq!(

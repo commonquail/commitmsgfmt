@@ -222,6 +222,7 @@ foo
         let msg = "
 foo
 
+paragraph
 [2] note
 [1] note
 [3]    foo bar baz qux https://a.really-long-url.example
@@ -234,6 +235,7 @@ foo
         let expected = "
 foo
 
+paragraph
 [2] note
 [1] note
 [3] foo bar baz qux
@@ -249,6 +251,38 @@ foo
 ";
 
         assert_eq!(filter(20, &msg), expected);
+    }
+
+    #[test]
+    fn formats_footnote_references() {
+        let msg = "
+foo
+
+x [1] x
+[1].
+
+yy [2] y
+[2] .
+
+zzz [3]
+z
+[3] .
+";
+        let expected = "
+foo
+
+x [1]
+x [1].
+
+yy [2] y
+[2] .
+
+zzz [3]
+z
+[3] .
+";
+
+        assert_eq!(filter(8, &msg), expected);
     }
 
     #[test]
