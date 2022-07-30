@@ -9,6 +9,9 @@ understanding of patterns often seen in commit messages.
   circumvent the prevention of undesirable line breaking added in v1.4.0. This
   meant that `foo [1].` could wrap while `foo [1]` could not; now neither can.
 
+- Extend the range of non-breakable tokens to include any sequence of ASCII
+  punctuation. Previously `foo ...` could wrap; now it cannot.
+
 ## 1.4.1 - 2021-04-05
 
 - Fix an errant man page header accidentally added in v1.4.0.

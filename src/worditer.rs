@@ -43,7 +43,9 @@ impl<'text> WordIter<'text> {
     }
 
     fn is_non_breaking_word(&self, word: &str) -> bool {
-        word == "--" || word.starts_with(self.comment_char) || FOOTNOTE_REFERENCE.is_match(word)
+        word.starts_with(self.comment_char)
+            || word.chars().all(|c| c.is_ascii_punctuation())
+            || FOOTNOTE_REFERENCE.is_match(word)
     }
 }
 
@@ -56,11 +58,7 @@ impl<'text> Iterator for WordIter<'text> {
 
         self.next_word = self.naive_words.next();
         while let Some(word) = self.next_word {
-            if self.is_non_breaking_word(word) {
-                let non_breaking_word = non_breaking_word.to_mut();
-                non_breaking_word.push(' ');
-                non_breaking_word.push_str(word);
-            } else if word.is_empty() {
+            if word.is_empty() {
                 // str::split(' ') discards the matched space but produces empty
                 // strings instead; this is "surprising but intentional". We
                 // don't need those empty strings so skip them.
@@ -69,6 +67,10 @@ impl<'text> Iterator for WordIter<'text> {
                 // empty strings but match more tokens than we're used to; see
                 // be0833e (Document Unicode whitespace handling, 2018-09-16).
                 debug_assert!("a ".split_ascii_whitespace().collect::<Vec<&str>>() == vec!["a"]);
+            } else if self.is_non_breaking_word(word) {
+                let non_breaking_word = non_breaking_word.to_mut();
+                non_breaking_word.push(' ');
+                non_breaking_word.push_str(word);
             } else {
                 break;
             }
@@ -233,10 +235,8 @@ mod tests {
         let expect = [
             "a [foo].",
             "b [bar].:#,;![]() [x]",
-            "c [baz]",
-            ".#",
-            "d [qux]",
-            "...",
+            "c [baz] .#",
+            "d [qux] ...",
             "e",
             "[qaz]f",
         ];
