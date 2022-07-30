@@ -1,13 +1,13 @@
 use regex::Regex;
 use unicode_segmentation::UnicodeSegmentation;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ListType(pub String);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ListIndent(pub String);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Token {
     Comment(String),
     Footnote(String, String),
