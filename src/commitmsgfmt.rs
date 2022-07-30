@@ -44,21 +44,21 @@ impl CommitMsgFmt {
                     buf.push_str(indent);
                     buf.push_str(li);
 
-                    self.wrap_paragraph_into(&mut buf, &s, Some(&continuation));
+                    self.wrap_paragraph_into(&mut buf, s, Some(&continuation));
                     buf.push('\n');
                 }
                 Literal(ref l) => {
                     buf.push_str(l.as_str());
                 }
                 Paragraph(ref p) => {
-                    self.wrap_paragraph_into(&mut buf, &p, None);
+                    self.wrap_paragraph_into(&mut buf, p, None);
                     buf.push('\n');
                 }
                 Footnote(ref key, ref rest) => {
-                    buf.push_str(&key);
+                    buf.push_str(key);
                     buf.push(' ');
                     let continuation = " ".repeat(key.graphemes(true).count() + 1);
-                    self.wrap_paragraph_into(&mut buf, &rest.trim(), Some(&continuation));
+                    self.wrap_paragraph_into(&mut buf, rest.trim(), Some(&continuation));
                     buf.push('\n');
                 }
                 Subject(ref s) | Trailer(ref s) => {
@@ -74,11 +74,11 @@ impl CommitMsgFmt {
 
     fn wrap_paragraph_into(&self, buf: &mut String, paragraph: &str, continuation: Option<&str>) {
         let limit = match continuation {
-            Some(ref c) => self.width.checked_sub(c.len()).unwrap_or(0),
+            Some(c) => self.width.saturating_sub(c.len()),
             None => self.width,
         };
         let mut cur_line_len = 0;
-        for word in WordIter::new(&paragraph, self.comment_char) {
+        for word in WordIter::new(paragraph, self.comment_char) {
             let word_len = word.graphemes(true).count();
 
             // Not a new line so we need to fiddle with whitespace.
@@ -87,7 +87,7 @@ impl CommitMsgFmt {
                     cur_line_len = 0;
                     buf.push('\n');
                     if let Some(cont) = continuation {
-                        buf.push_str(&cont);
+                        buf.push_str(cont);
                     }
                 } else {
                     buf.push(' ');

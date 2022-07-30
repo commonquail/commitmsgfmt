@@ -41,16 +41,12 @@ impl<'text> Iterator for WordIter<'text> {
     type Item = Cow<'text, str>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let word_start = self.next_word.or_else(|| self.naive_words.next());
-        if word_start.is_none() {
-            return None;
-        }
-
-        let mut non_breaking_word = Cow::Borrowed(word_start.unwrap());
+        let word_start = self.next_word.or_else(|| self.naive_words.next())?;
+        let mut non_breaking_word = Cow::Borrowed(word_start);
 
         self.next_word = self.naive_words.next();
         while let Some(word) = self.next_word {
-            if self.is_non_breaking_word(&word) {
+            if self.is_non_breaking_word(word) {
                 let non_breaking_word = non_breaking_word.to_mut();
                 non_breaking_word.push(' ');
                 non_breaking_word.push_str(word);
