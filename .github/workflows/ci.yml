@@ -21,23 +21,23 @@ jobs:
           - macos
         include:
           - build: pinned
-            os: ubuntu-18.04
+            os: ubuntu-22.04
             rust: 1.48.0
 
           - build: stable
-            os: ubuntu-18.04
+            os: ubuntu-22.04
             rust: stable
 
           - build: nightly
-            os: ubuntu-18.04
+            os: ubuntu-22.04
             rust: nightly
 
           - build: win-msvc
-            os: windows-2019
+            os: windows-2022
             rust: nightly
 
           - build: macos
-            os: macos-latest
+            os: macos-12
             rust: nightly
     env:
       # Backtraces for panics.
