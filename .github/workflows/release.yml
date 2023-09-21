@@ -44,17 +44,17 @@ jobs:
           - win-msvc
         include:
           - build: linux
-            os: ubuntu-18.04
+            os: ubuntu-22.04
             target: x86_64-unknown-linux-musl
             binary_ext:
 
           - build: macos
-            os: macos-latest
+            os: macos-12
             target: x86_64-apple-darwin
             binary_ext:
 
           - build: win-msvc
-            os: windows-2019
+            os: windows-2022
             target: x86_64-pc-windows-msvc
             binary_ext: .exe
     env:
@@ -80,18 +80,18 @@ jobs:
       #   run: ./ci/install-${{ matrix.os }}
       # but I couldn't get Windows to do anything that way.
       - name: Install dependencies (Ubuntu)
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             asciidoctor
 
       - name: Install dependencies (Windows)
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         run: gem install asciidoctor
 
       - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-12'
         run: brew install asciidoctor
 
       - name: Install Rust
@@ -127,7 +127,7 @@ jobs:
           cp -r contrib "$package"
           cp "${{ env.RELEASE_BINARY }}" "$package"
 
-          if [[ "${{ matrix.os }}" = 'windows-2019' ]]
+          if [[ "${{ matrix.os }}" = 'windows-2022' ]]
           then
             7z a "$package.zip" "$package"
             printf 'ASSET=%s\n' "$package.zip" >> $GITHUB_ENV
