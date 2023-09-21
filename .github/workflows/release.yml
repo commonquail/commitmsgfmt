@@ -7,34 +7,8 @@ on:
 
 jobs:
 
-  # First register a new release we can attach files to.
-  create-release:
-    name: create-release
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.release_version.outputs.version }}
-      upload_url: ${{ steps.release.outputs.upload_url }}
-    steps:
-      # Yes, we really need to get the plain tag name like this. There are even
-      # dedicated actions for it.
-      # https://stackoverflow.com/a/58178121/482758
-      - name: Share release version
-        id: release_version
-        run: printf '::set-output name=version::%s\n' "${GITHUB_REF#refs/tags/}"
-
-      - name: Publish new release
-        id: release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.release_version.outputs.version }}
-          release_name: ${{ steps.release_version.outputs.version }}
-
   build-package:
     name: build-package
-    needs:
-      - create-release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -64,15 +38,14 @@ jobs:
       TARGET_DIR: ./target
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Prepare environment
         shell: bash
         run: |
           printf 'TARGET_FLAGS=--target %s\n' "${{ matrix.target }}" >> $GITHUB_ENV
           printf 'TARGET_DIR=./target/${{ matrix.target }}\n' >> $GITHUB_ENV
-          printf 'RELEASE_URL=%s\n' "${{ needs.create-release.outputs.upload_url }}" >> $GITHUB_ENV
-          printf 'RELEASE_VERSION=%s\n' "${{ needs.create-release.outputs.version }}" >> $GITHUB_ENV
+          printf 'RELEASE_VERSION=%s\n' "${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
           printf 'RELEASE_BINARY=%s\n' "target/${{ matrix.target }}/release/commitmsgfmt${{ matrix.binary_ext }}" >> $GITHUB_ENV
 
       # So much cruft just to install Asciidoctor.
@@ -95,13 +68,11 @@ jobs:
         run: brew install asciidoctor
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           # Build all releases on nightly for latest optimizations.
           toolchain: nightly
-          profile: minimal
-          override: true
-          target: ${{ matrix.target }}
+          targets: ${{ matrix.target }}
 
       - name: Install Cross
         run: cargo install cross
@@ -137,11 +108,8 @@ jobs:
           fi
 
       - name: Upload package
-        uses: actions/upload-release-asset@v1.0.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ env.RELEASE_URL }}
-          asset_path: ${{ env.ASSET }}
-          asset_name: ${{ env.ASSET }}
-          asset_content_type: application/octet-stream
+          draft: true
+          tag_name: ${{ env.RELEASE_VERSION }}
+          files: ${{ env.ASSET }}
