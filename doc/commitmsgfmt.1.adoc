@@ -93,7 +93,11 @@ those cases and avoid them by preventing wrapping: it will
 
 * join a sequence of footnote references to their preceding word, so the
   references both preserve their context and don't degenerate into _list
-  items_;
+  items_.
+
+_Block quotes_ are exempt from the requirement of surrounding blank lines and
+will never be considered to belong to a paragraph. A block quote embedded
+inside a paragraph has the same effect on that paragraph as an empty line has.
 
 === Subject line
 
@@ -195,6 +199,39 @@ literals.
 A line starting with one tab or four spaces is considered a _literal_. Literals
 are printed verbatim, making them suitable for listings and tables.
 
+=== Block quote
+
+A line starting with a greater-than sign (*>*) is considered a _block quote_:
+
+----
+Git's Web site claims:
+> Git is easy to learn and has a tiny footprint with lightning fast
+> performance. It outclasses SCM tools like Subversion, CVS, Perforce, and
+> ClearCase with features like cheap local branching, convenient staging areas,
+> and multiple workflows.
+----
+
+Block quotes are printed verbatim; they are not wrapped, nor are quote markers
+in any way normalized or aligned.
+
+[TIP]
+====
+If you wish to reflow a block quote, Vim's *gq* command does a decent job.
+Alternatively, consider delegating to *fmt*(1). For example, the following Vim
+Normal mode command instructs *fmt*(1) to reflow every line starting with *>*
+in the cursor's paragraph to 72 columns:
+
+----
+vip:!fmt -w72 -p'>'
+----
+====
+
+Unlike other constructs a block quote may be embedded inside a _paragraph_ with
+no preceding or following blank line; the block quote will not be folded into
+the paragraph and the paragraph will otherwise observe standard behavior. This
+enables a common pattern of immediately preceding the block quote with an
+author attribution, illustrated above.
+
 === Comment
 
 A line starting with the *core.commentChar* character, or a hash sign (*#*)
@@ -269,6 +306,9 @@ Given input
 subject
 foo baar -- baz qux wupwupwup [1][2] [wup]
 
+hex:
+> 0 1 2 3 4 5 6 7 8 9 a b c d e f
+
 - foo
 1. foo bar
 baz
@@ -288,6 +328,9 @@ foo
 baar --
 baz qux
 wupwupwup [1][2] [wup]
+
+hex:
+> 0 1 2 3 4 5 6 7 8 9 a b c d e f
 
 - foo
 1. foo bar

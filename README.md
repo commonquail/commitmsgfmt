@@ -31,13 +31,13 @@ In summary, `commitmsgfmt`
   paragraph;
 
 - reflows and wraps all other prose at the specified max width, defaulting to
-  72 characters based on Time Pope's recommendation from 2008 [[tpope]];
+  72 characters based on Tim Pope's recommendation from 2008 [[tpope]];
 
 - properly indents continuation lines in numbered and unnumbered lists,
   recognizing several different list styles;
 
-- exempts comments; text indented at least 4 spaces or 1 tab; and "trailers"
-  (`Signed-off-by:`);
+- exempts comments; text indented at least 4 spaces or 1 tab; "trailers"
+  (`Signed-off-by:`); and block quotes;
 
 - assumes UTF-8 encoded input but can gracefully degrade to ISO-8859-1
   ("latin1") which has been observed in the Linux kernel;

@@ -37,7 +37,8 @@ impl CommitMsgFmt {
     fn reflow_into(&self, buf: &mut String, msg: &[Token]) {
         for tok in msg {
             match *tok {
-                Comment(ref s) | Literal(ref s) | Scissored(ref s) | Trailer(ref s) => {
+                BlockQuote(ref s) | Comment(ref s) | Literal(ref s) | Scissored(ref s)
+                | Trailer(ref s) => {
                     buf.push_str(s);
                 }
                 ListItem(ref indent, ref li, ref s) => {
@@ -212,6 +213,75 @@ foo
 ";
 
         assert_eq!(filter(72, &input), expected);
+    }
+
+    #[test]
+    fn preserves_block_quote() {
+        let input = "
+foo
+
+> block quote
+paragraph
+";
+
+        let expected = input;
+
+        assert_eq!(filter(72, &input), expected);
+    }
+
+    #[test]
+    fn preserves_block_quote_with_attribution() {
+        let input = "
+foo
+
+author wrote:
+> block quote
+paragraph
+";
+
+        let expected = input;
+
+        assert_eq!(filter(72, &input), expected);
+    }
+
+    #[test]
+    fn preserves_multiline_block_quote() {
+        let input = "
+xx-xxxxxx xxxx xxxxxxx xxxxxxxxxxxxxx
+
+xxxx xxxxxx xxxxxxx xxxxx xx xxx xxx -x xxxxxx xxxx xxxx-xx-xxxxx, xxxxx
+xxxxxxxxx xxxx xxxxxxx xxxxxxxxxxxxxx. xxxx xxx xxxxxxx:
+
+> ```
+> -x xx --xx-xxxx
+>     xxxxxxxx xxxxxxx xxx xxxxxxx xxxxxxxxxxxxxx xxx xxxxxxxxxxxxxxxx
+>     xxxxxxx xx xxx xxxxxxxx. xxxx xx
+> ```
+
+xxx xxxxxxx xxxxxxxx xx `xxxx` xx xx xxxxxx xxxxxxx xxxxxxxxxxxxxx.
+";
+
+        let expected = "
+xx-xxxxxx xxxx xxxxxxx xxxxxxxxxxxxxx
+
+xxxx xxxxxx xxxxxxx xxxxx xx
+xxx xxx -x xxxxxx xxxx
+xxxx-xx-xxxxx, xxxxx xxxxxxxxx
+xxxx xxxxxxx xxxxxxxxxxxxxx.
+xxxx xxx xxxxxxx:
+
+> ```
+> -x xx --xx-xxxx
+>     xxxxxxxx xxxxxxx xxx xxxxxxx xxxxxxxxxxxxxx xxx xxxxxxxxxxxxxxxx
+>     xxxxxxx xx xxx xxxxxxxx. xxxx xx
+> ```
+
+xxx xxxxxxx xxxxxxxx xx `xxxx`
+xx xx xxxxxx xxxxxxx
+xxxxxxxxxxxxxx.
+";
+
+        assert_eq!(filter(30, &input), expected);
     }
 
     #[test]
