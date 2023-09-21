@@ -85,23 +85,13 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
         } else if trailer.is_match(line) {
             toks.push(Token::Trailer(line));
         } else if let Some(y) = match toks.last_mut() {
-            Some(&mut Token::Footnote(_, ref mut b)) => {
-                b.push(' ');
-                b.push_str(line.trim());
-                None
-            }
-            Some(&mut Token::Paragraph(ref mut b)) => {
-                b.push(' ');
-                b.push_str(line.trim());
-                None
-            }
+            Some(&mut Token::Footnote(_, ref mut b)) => extend_prose_buffer_with_line(b, line),
+            Some(&mut Token::Paragraph(ref mut b)) => extend_prose_buffer_with_line(b, line),
             Some(&mut Token::ListItem(_, _, ref mut b)) => {
                 if list_item.is_match(line) {
                     Some(list_item_from_line(&list_item, line))
                 } else {
-                    b.push(' ');
-                    b.push_str(line.trim());
-                    None
+                    extend_prose_buffer_with_line(b, line)
                 }
             }
             _ => {
@@ -178,6 +168,12 @@ fn list_item_from_line<'a>(pat: &Regex, line: &str) -> Token<'a> {
         ListType(li.as_str().to_owned()),
         line[li.end()..].to_owned(),
     )
+}
+
+fn extend_prose_buffer_with_line(ref mut buf: &mut String, line: &str) -> Option<Token<'static>> {
+    buf.push(' ');
+    buf.push_str(line.trim());
+    None
 }
 
 #[cfg(test)]
