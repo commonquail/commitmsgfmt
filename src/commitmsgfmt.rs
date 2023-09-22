@@ -28,12 +28,8 @@ impl CommitMsgFmt {
         let mut buf = String::new();
         for tok in msg {
             match *tok {
-                Comment(ref c) => {
-                    buf.push_str(c.as_str());
-                    buf.push('\n');
-                }
-                Scissored(ref s) => {
-                    buf.push_str(s.as_str());
+                Comment(ref s) | Literal(ref s) | Scissored(ref s) | Trailer(ref s) => {
+                    buf.push_str(s);
                 }
                 ListItem(ref indent, ref li, ref s) => {
                     let indent = &indent.0;
@@ -45,28 +41,22 @@ impl CommitMsgFmt {
                     buf.push_str(li);
 
                     self.wrap_paragraph_into(&mut buf, s, Some(&continuation));
-                    buf.push('\n');
-                }
-                Literal(ref l) => {
-                    buf.push_str(l.as_str());
                 }
                 Paragraph(ref p) => {
                     self.wrap_paragraph_into(&mut buf, p, None);
-                    buf.push('\n');
                 }
                 Footnote(ref key, ref rest) => {
                     buf.push_str(key);
                     buf.push(' ');
                     let continuation = " ".repeat(key.graphemes(true).count() + 1);
                     self.wrap_paragraph_into(&mut buf, rest.trim(), Some(&continuation));
-                    buf.push('\n');
                 }
-                Subject(ref s) | Trailer(ref s) => {
-                    buf.push_str(s.as_str());
-                    buf.push('\n');
+                Subject(ref s) => {
+                    buf.push_str(s);
                 }
-                VerticalSpace => buf.push('\n'),
+                VerticalSpace => {}
             }
+            buf.push('\n');
         }
 
         buf

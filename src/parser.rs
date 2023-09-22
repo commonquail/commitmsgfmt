@@ -8,15 +8,15 @@ pub struct ListType(pub String);
 pub struct ListIndent(pub String);
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Token {
-    Comment(String),
+pub enum Token<'input> {
+    Comment(&'input str),
     Footnote(String, String),
     ListItem(ListIndent, ListType, String),
-    Literal(String),
+    Literal(&'input str),
     Paragraph(String),
     Subject(String),
-    Scissored(String),
-    Trailer(String),
+    Scissored(&'input str),
+    Trailer(&'input str),
     VerticalSpace,
 }
 
@@ -58,22 +58,13 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut px = false;
     for line in lines {
         if has_scissors {
-            match *toks.last_mut().expect("has_scissors") {
-                Token::Scissored(ref mut s) => {
-                    s.push_str(line);
-                    s.push('\n');
-                }
-                _ => unreachable!(),
-            }
+            toks.push(Token::Scissored(line));
         } else if line.starts_with(comment_char) {
             let t = if &line[1..] == " ------------------------ >8 ------------------------" {
                 has_scissors = true;
-                let mut raw = String::with_capacity(20 * 60); // Toilet maths.
-                raw.push_str(line);
-                raw.push('\n'); // Recover linefeed lost from iterator.
-                Token::Scissored(raw)
+                Token::Scissored(line)
             } else {
-                Token::Comment(line.to_owned())
+                Token::Comment(line)
             };
             toks.push(t);
         } else if blank_or_empty.is_match(line) {
@@ -92,7 +83,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
             let rest = splitter.next().unwrap().trim().to_owned();
             toks.push(Token::Footnote(key, rest));
         } else if trailer.is_match(line) {
-            toks.push(Token::Trailer(line.to_owned()));
+            toks.push(Token::Trailer(line));
         } else if let Some(y) = match toks.last_mut() {
             Some(&mut Token::Footnote(_, ref mut b)) => {
                 b.push(' ');
@@ -117,9 +108,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
                 if list_item.is_match(line) {
                     Some(list_item_from_line(&list_item, line))
                 } else if indented.is_match(line) {
-                    let mut raw = line.to_owned();
-                    raw.push('\n'); // Recover linefeed lost from iterator.
-                    Some(Token::Literal(raw))
+                    Some(Token::Literal(line))
                 } else {
                     px = false;
                     Some(Token::Paragraph(line.trim().to_owned()))
@@ -180,7 +169,7 @@ fn parse_subject(line: &str, toks: &mut Vec<Token>) {
     }
 }
 
-fn list_item_from_line(pat: &Regex, line: &str) -> Token {
+fn list_item_from_line<'a>(pat: &Regex, line: &str) -> Token<'a> {
     let captures = pat.captures(line).unwrap();
     let indent = captures.name("indent").unwrap();
     let li = captures.name("li").unwrap();
@@ -229,12 +218,12 @@ mod tests {
 
     #[test]
     fn parses_default_comment() {
-        assert_eq!(super::parse("# foo", '#'), [Comment("# foo".to_owned())]);
+        assert_eq!(super::parse("# foo", '#'), [Comment("# foo")]);
     }
 
     #[test]
     fn parses_custom_comment() {
-        assert_eq!(super::parse("@ foo", '@'), [Comment("@ foo".to_owned())]);
+        assert_eq!(super::parse("@ foo", '@'), [Comment("@ foo")]);
         assert_eq!(super::parse("# foo", '@'), [Subject("# foo".to_owned())]);
     }
 
@@ -242,11 +231,7 @@ mod tests {
     fn parses_mixed_comment_and_content() {
         assert_eq!(
             parse("# foo\n\n # bar"),
-            [
-                Comment("# foo".to_owned()),
-                VerticalSpace,
-                Subject("# bar".to_owned()),
-            ],
+            [Comment("# foo"), VerticalSpace, Subject("# bar".to_owned()),],
         );
     }
 
@@ -273,7 +258,7 @@ mod tests {
     #[test]
     fn parses_fitting_subject() {
         let s = "f".repeat(SUBJECT_CHAR_LIMIT);
-        assert_eq!(parse(&s), [Subject(s)]);
+        assert_eq!(parse(&s), [Subject(s.to_owned())]);
     }
 
     #[test]
@@ -299,7 +284,10 @@ mod tests {
                 prefix = autosquash_prefix,
                 subject = original_subject
             );
-            assert_eq!(parse(&autosquash_subject), [Subject(autosquash_subject),],);
+            assert_eq!(
+                parse(&autosquash_subject),
+                [Subject(autosquash_subject.to_owned()),],
+            );
         }
     }
 
@@ -371,7 +359,7 @@ paragraphs
                 Paragraph("this is one paragraph".to_owned()),
                 VerticalSpace,
                 Paragraph("this is".to_owned()),
-                Comment("# two".to_owned()),
+                Comment("# two"),
                 Paragraph("paragraphs".to_owned()),
             ]
         );
@@ -417,8 +405,8 @@ some other paragraph
                 VerticalSpace,
                 Paragraph("some paragraph".to_owned()),
                 VerticalSpace,
-                Literal("    some 4-space literal\n".to_owned()),
-                Literal("      continuation\n".to_owned()),
+                Literal("    some 4-space literal"),
+                Literal("      continuation"),
                 VerticalSpace,
                 Paragraph("some other paragraph no literal without vertical space".to_owned()),
             ],
@@ -448,9 +436,9 @@ some other paragraph
                 VerticalSpace,
                 Paragraph("some paragraph".to_owned()),
                 VerticalSpace,
-                Literal("\tsome 4-space literal\n".to_owned()),
-                Literal("\t  continuation\n".to_owned()),
-                Literal("\t\tcontinuation\n".to_owned()),
+                Literal("\tsome 4-space literal"),
+                Literal("\t  continuation"),
+                Literal("\t\tcontinuation"),
                 VerticalSpace,
                 Paragraph("some other paragraph no literal without vertical space".to_owned()),
             ],
@@ -487,9 +475,9 @@ some other paragraph
                 VerticalSpace,
                 Paragraph("some paragraph".to_owned()),
                 VerticalSpace,
-                Literal("    some 4-space literal\n".to_owned()),
-                Literal("    some 4-space literal\n".to_owned()),
-                Literal("    some 4-space literal\n".to_owned()),
+                Literal("    some 4-space literal"),
+                Literal("    some 4-space literal"),
+                Literal("    some 4-space literal"),
                 VerticalSpace,
                 Paragraph("some other paragraph".to_owned()),
             ],
@@ -520,10 +508,10 @@ Signed-off-by: Jane Doe <jane@doe.com>
                 VerticalSpace,
                 Subject("subject".to_owned()),
                 VerticalSpace,
-                Trailer("Fixes: All the things".to_owned()),
-                Trailer("Cc: John Doe <john@doe.com>".to_owned()),
-                Trailer("Reviewed-by: NSA".to_owned()),
-                Trailer("Signed-off-by: Jane Doe <jane@doe.com>".to_owned()),
+                Trailer("Fixes: All the things"),
+                Trailer("Cc: John Doe <john@doe.com>"),
+                Trailer("Reviewed-by: NSA"),
+                Trailer("Signed-off-by: Jane Doe <jane@doe.com>"),
             ],
         );
     }
@@ -874,15 +862,11 @@ do
                 VerticalSpace,
                 Paragraph("format this".to_owned()),
                 VerticalSpace,
-                Scissored(
-                    r#"# ------------------------ >8 ------------------------
-do
- not
-  format
- this
-"#
-                    .to_owned()
-                ),
+                Scissored("# ------------------------ >8 ------------------------"),
+                Scissored("do"),
+                Scissored(" not"),
+                Scissored("  format"),
+                Scissored(" this"),
             ],
         );
     }
@@ -910,13 +894,10 @@ do
                 VerticalSpace,
                 Paragraph("# ------------------------ >8 ------------------------ above is not a comment; do the needful".to_owned()),
                 VerticalSpace,
-                Scissored(
-                    r#"$ ------------------------ >8 ------------------------
-do
- not
-  format
-"#.to_owned()
-                ),
+                Scissored("$ ------------------------ >8 ------------------------"),
+                Scissored("do"),
+                Scissored(" not"),
+                Scissored("  format"),
             ],
         );
     }
