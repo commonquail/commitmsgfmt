@@ -26,10 +26,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut has_subject = false;
     let mut has_scissors = false;
     let lines = input.lines();
-    let blank_or_empty = mk_regex_blank_or_empty();
-    let footnote = mk_regex_footnote();
     let trailer = mk_regex_trailer();
-    let indented = mk_regex_indented();
     let list_item = mk_regex_list_item();
     let mut px = false;
     for line in lines {
@@ -43,7 +40,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
                 Token::Comment(line)
             };
             toks.push(t);
-        } else if blank_or_empty.is_match(line) {
+        } else if is_line_blank_or_whitespace(line) {
             if toks.last() != Some(&Token::VerticalSpace) {
                 toks.push(Token::VerticalSpace);
             }
@@ -52,8 +49,8 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
             parse_subject(line, &mut toks);
             has_subject = true;
             px = false;
-        } else if px && footnote.is_match(line) {
-            debug_assert!(footnote.as_str().contains(' '));
+        } else if px && is_line_footnote(line) {
+            debug_assert!(line.contains(' '));
             let mut splitter = line.splitn(2, ' ');
             let key = splitter.next().unwrap().to_owned();
             let rest = splitter.next().unwrap().trim().to_owned();
@@ -73,7 +70,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
             _ => {
                 if list_item.is_match(line) {
                     Some(list_item_from_line(&list_item, line))
-                } else if indented.is_match(line) {
+                } else if is_line_indented(line) {
                     Some(Token::Literal(line))
                 } else {
                     px = false;
@@ -152,20 +149,44 @@ fn extend_prose_buffer_with_line(ref mut buf: &mut String, line: &str) -> Option
     None
 }
 
-fn mk_regex_blank_or_empty() -> Regex {
-    Regex::new(r"^\s*$").unwrap()
+fn is_line_blank_or_whitespace(line: &str) -> bool {
+    line.chars().all(char::is_whitespace)
 }
 
-fn mk_regex_footnote() -> Regex {
-    Regex::new(r"^\[[^]]+\]:? .+$").unwrap()
+fn is_line_footnote(line: &str) -> bool {
+    if line.starts_with('[') {
+        let mut chars = line[1..].chars();
+        if chars.next() == Some(']') {
+            // Reject "[]"
+            return false;
+        }
+        let mut chars = chars.skip_while(|c| c != &']');
+        let mut c = chars.next();
+        if c != Some(']') {
+            // Require "[.+]"
+            return false;
+        }
+        c = chars.next();
+        if c == Some(':') {
+            // Allow "[.+]:?"
+            c = chars.next();
+        }
+        if c != Some(' ') {
+            // Require "[.+]:? "
+            return false;
+        }
+        // Require "[.+]:? .+"
+        return chars.next().is_some();
+    }
+    false
+}
+
+fn is_line_indented(line: &str) -> bool {
+    line.starts_with("    ") || line.starts_with('\t')
 }
 
 fn mk_regex_trailer() -> Regex {
     Regex::new(r"^\p{Alphabetic}[-\w]+: .+$").unwrap()
-}
-
-fn mk_regex_indented() -> Regex {
-    Regex::new(r"^(?:\t| {4,})").unwrap()
 }
 
 fn mk_regex_list_item() -> Regex {
