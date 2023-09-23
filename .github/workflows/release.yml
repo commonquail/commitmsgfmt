@@ -79,8 +79,16 @@ jobs:
           toolchain: nightly
           targets: ${{ matrix.target }}
 
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@install-cargo-binstall-1.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       - name: Install Cross
-        run: cargo install cross
+        # "install cross" takes 1 minute, "binstall cross" takes 1 second.
+        run: cargo binstall --no-confirm cross
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Build release
         run: cross build --verbose --release ${{ env.TARGET_FLAGS }}
