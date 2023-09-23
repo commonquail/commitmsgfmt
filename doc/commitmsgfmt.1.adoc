@@ -169,9 +169,10 @@ asterisk (***) and a space is considered an _unnumbered list item_:
 
 A line starting with up to 2 spaces followed by either
 
-* a left brace (*(*), one or more digits, a right brace (*)*), and a space; or
+. a left parenthesis (*(*), one or more digits, a right parenthesis (*)*), and
+  a space; or
 
-* one or more digits, any one of a period (*.*), right brace (*)*), right
+. one or more digits, any one of a period (*.*), right parenthesis (*)*), right
   bracket (*]*), or colon (*:*), and a space
 
 is considered a _numbered list item_:
