@@ -26,35 +26,11 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut has_subject = false;
     let mut has_scissors = false;
     let lines = input.lines();
-    let blank_or_empty = Regex::new(r"^\s*$").unwrap();
-    let footnote = Regex::new(r"^\[[^]]+\]:? .+$").unwrap();
-    let trailer = Regex::new(r"^\p{Alphabetic}[-\w]+: .+$").unwrap();
-    let indented = Regex::new(r"^(?:\t| {4,})").unwrap();
-    let list_item = Regex::new(
-        r"(?x)
-    ^(?P<indent>
-    # Lists may be indented a little; too much and they become literals.
-    \s{0,2}
-    )
-    (?P<li>
-        (:?
-            # We recognize unnumbered list markers...
-            [-*]
-            |
-            (:?
-                # ... and numbered list markers...
-                \d+
-                # ... followed by some delimiter observed in the wild...
-                [.)\]:]
-                |
-                # ... or, alternatively, wrapped in parentheses...
-                \(\d+\)
-            )
-        )
-    # ... when the list item marker ends with at least one space.
-    \s+)",
-    )
-    .unwrap();
+    let blank_or_empty = mk_regex_blank_or_empty();
+    let footnote = mk_regex_footnote();
+    let trailer = mk_regex_trailer();
+    let indented = mk_regex_indented();
+    let list_item = mk_regex_list_item();
     let mut px = false;
     for line in lines {
         if has_scissors {
@@ -174,6 +150,50 @@ fn extend_prose_buffer_with_line(ref mut buf: &mut String, line: &str) -> Option
     buf.push(' ');
     buf.push_str(line.trim());
     None
+}
+
+fn mk_regex_blank_or_empty() -> Regex {
+    Regex::new(r"^\s*$").unwrap()
+}
+
+fn mk_regex_footnote() -> Regex {
+    Regex::new(r"^\[[^]]+\]:? .+$").unwrap()
+}
+
+fn mk_regex_trailer() -> Regex {
+    Regex::new(r"^\p{Alphabetic}[-\w]+: .+$").unwrap()
+}
+
+fn mk_regex_indented() -> Regex {
+    Regex::new(r"^(?:\t| {4,})").unwrap()
+}
+
+fn mk_regex_list_item() -> Regex {
+    Regex::new(
+        r"(?x)
+    ^(?P<indent>
+    # Lists may be indented a little; too much and they become literals.
+    \s{0,2}
+    )
+    (?P<li>
+        (:?
+            # We recognize unnumbered list markers...
+            [-*]
+            |
+            (:?
+                # ... and numbered list markers...
+                \d+
+                # ... followed by some delimiter observed in the wild...
+                [.)\]:]
+                |
+                # ... or, alternatively, wrapped in parentheses...
+                \(\d+\)
+            )
+        )
+    # ... when the list item marker ends with at least one space.
+    \s+)",
+    )
+    .unwrap()
 }
 
 #[cfg(test)]
