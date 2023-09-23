@@ -1,4 +1,3 @@
-use regex::Regex;
 use std::borrow::Cow;
 
 /// An iterator over "words" in some text. A word is generally a sequence of non-whitespace
@@ -19,20 +18,6 @@ pub(crate) struct WordIter<'text> {
     naive_words: core::str::Split<'text, char>,
 }
 
-lazy_static! {
-    static ref FOOTNOTE_REFERENCE: Regex = Regex::new(
-        r"(?x)
-        ^
-        # One or more unseparated '[any]' tokens...
-        (?:\[[^]]+\])+
-        # ... optionally immediately followed by any sort of punctuation, for
-        # example in case this is the end of the sentence.
-        (?:\p{Punctuation}*)
-        $"
-    )
-    .unwrap();
-}
-
 impl<'text> WordIter<'text> {
     pub fn new(text: &'text str, comment_char: char) -> Self {
         WordIter {
@@ -44,8 +29,42 @@ impl<'text> WordIter<'text> {
 
     fn is_non_breaking_word(&self, word: &str) -> bool {
         word.starts_with(self.comment_char)
-            || word.chars().all(|c| c.is_ascii_punctuation())
-            || FOOTNOTE_REFERENCE.is_match(word)
+            || match WordIter::describe_word(word) {
+                WordJoinerState::FootnoteRefUnseen => true,
+                WordJoinerState::FootnoteRefOpen => false,
+                WordJoinerState::FootnoteRefNamed => false,
+                WordJoinerState::FootnoteRefValid => true,
+                WordJoinerState::TrailingNonPunctuation => false,
+            }
+    }
+
+    fn describe_word(word: &str) -> WordJoinerState {
+        let mut state = WordJoinerState::FootnoteRefUnseen;
+        for c in word.chars() {
+            match state {
+                WordJoinerState::FootnoteRefUnseen | WordJoinerState::FootnoteRefValid => {
+                    if c == '[' {
+                        state = WordJoinerState::FootnoteRefOpen;
+                    } else if !c.is_ascii_punctuation() {
+                        state = WordJoinerState::TrailingNonPunctuation;
+                    }
+                }
+                WordJoinerState::FootnoteRefOpen => {
+                    state = if c == ']' {
+                        WordJoinerState::FootnoteRefUnseen
+                    } else {
+                        WordJoinerState::FootnoteRefNamed
+                    };
+                }
+                WordJoinerState::FootnoteRefNamed => {
+                    if c == ']' {
+                        state = WordJoinerState::FootnoteRefValid;
+                    }
+                }
+                WordJoinerState::TrailingNonPunctuation => {}
+            }
+        }
+        state
     }
 }
 
@@ -83,6 +102,14 @@ impl<'text> Iterator for WordIter<'text> {
 }
 
 impl std::iter::FusedIterator for WordIter<'_> {}
+
+enum WordJoinerState {
+    FootnoteRefUnseen,
+    FootnoteRefOpen,
+    FootnoteRefNamed,
+    FootnoteRefValid,
+    TrailingNonPunctuation,
+}
 
 #[cfg(test)]
 mod tests {
