@@ -186,6 +186,28 @@ fn is_line_indented(line: &str) -> bool {
 }
 
 fn mk_regex_trailer() -> Regex {
+    // As of Git 2.42:
+    //
+    // 1) A trailer is comprised of a trailer token, a ":" separator, and a value.
+    //
+    // 2) A trailer token's bytes either satisfy C89's isalnum() or equal ASCII "-".
+    //
+    // 3) A trailer token contains at least one byte not counting the separator.
+    //
+    // 4) Only the last trailer-like block is recognized, and if that trailer-block violates the
+    //    trailer token requirement then no trailer block is recognized.
+    //
+    // 5) A single trailer may have an empty value. If there are multiple trailers and one has an
+    //    empty value, that trailer will be merged with the previous or next trailer's value.
+    //
+    // Requirements 1) and 2) are easy and necessary. Requirement 3) has a tricky interaction with
+    // other functionality but we can probably disregard it, a trailer token of /^[a-z-]$/ seems
+    // like a terrible trailer.
+    //
+    // We don't care about requirements 4) or 5). That's more of a post-submission presentation
+    // matter, and implementing it would be needlessly complex, error prone, and most importantly
+    // very unergonomic during writing. This means we can recognize something as a trailer that Git
+    // would not recognize as a trailer but that's the sensible trade-off.
     Regex::new(r"^\p{Alphabetic}[-\w]+: .+$").unwrap()
 }
 
@@ -549,6 +571,69 @@ Signed-off-by: Jane Doe <jane@doe.com>
                 Trailer("Cc: John Doe <john@doe.com>"),
                 Trailer("Reviewed-by: NSA"),
                 Trailer("Signed-off-by: Jane Doe <jane@doe.com>"),
+            ],
+        );
+    }
+
+    #[test]
+    fn trailer_token_satisfies_isalnum_ish() {
+        assert_eq!(
+            parse(
+                "
+subject
+
+abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789: æøå
+æ: multi-byte token char
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject".to_owned()),
+                VerticalSpace,
+                Trailer("abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789: æøå"),
+                Paragraph("æ: multi-byte token char".to_owned()),
+            ],
+        );
+    }
+
+    #[test]
+    fn trailer_token_is_at_least_2_bytes() {
+        assert_eq!(
+            parse(
+                "
+subject
+
+ab: c
+a: b
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject".to_owned()),
+                VerticalSpace,
+                Trailer("ab: c"),
+                Paragraph("a: b".to_owned()),
+            ],
+        );
+    }
+
+    #[test]
+    fn trailer_must_have_value() {
+        assert_eq!(
+            parse(
+                "
+subject
+
+ab: c
+ab:
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject".to_owned()),
+                VerticalSpace,
+                Trailer("ab: c"),
+                Paragraph("ab:".to_owned()),
             ],
         );
     }
