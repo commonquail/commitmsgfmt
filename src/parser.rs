@@ -26,7 +26,6 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut has_subject = false;
     let mut has_scissors = false;
     let lines = input.lines();
-    let trailer = mk_regex_trailer();
     let list_item = mk_regex_list_item();
     let mut px = false;
     for line in lines {
@@ -55,7 +54,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
             let key = splitter.next().unwrap().to_owned();
             let rest = splitter.next().unwrap().trim().to_owned();
             toks.push(Token::Footnote(key, rest));
-        } else if trailer.is_match(line) {
+        } else if is_line_trailer(line) {
             toks.push(Token::Trailer(line));
         } else if let Some(y) = match toks.last_mut() {
             Some(&mut Token::Footnote(_, ref mut b)) => extend_prose_buffer_with_line(b, line),
@@ -185,7 +184,7 @@ fn is_line_indented(line: &str) -> bool {
     line.starts_with("    ") || line.starts_with('\t')
 }
 
-fn mk_regex_trailer() -> Regex {
+fn is_line_trailer(line: &str) -> bool {
     // As of Git 2.42:
     //
     // 1) A trailer is comprised of a trailer token, a ":" separator, and a value.
@@ -208,7 +207,26 @@ fn mk_regex_trailer() -> Regex {
     // matter, and implementing it would be needlessly complex, error prone, and most importantly
     // very unergonomic during writing. This means we can recognize something as a trailer that Git
     // would not recognize as a trailer but that's the sensible trade-off.
-    Regex::new(r"^\p{Alphabetic}[-\w]+: .+$").unwrap()
+
+    // We look for the space, not the colon. A space will come in almost every line so we'll find
+    // that after a typical word length's steps. Colons never occur so they'd take O(len(line))
+    // time to figure out nothing. When we do find a space it's constant time effort to locate a
+    // colon, which must come immediately before.
+    let trailer_token_with_colon = match line.find(' ') {
+        Some(ix_first_space) => &line[..ix_first_space],
+        None => return false,
+    };
+
+    if trailer_token_with_colon.len() < 3 {
+        return false;
+    }
+
+    let is_token_char = |c: char| c.is_ascii_alphanumeric() || c == '-';
+    let mut chars = trailer_token_with_colon.chars().rev();
+    match chars.next() {
+        Some(':') => chars.all(is_token_char),
+        _ => false,
+    }
 }
 
 fn mk_regex_list_item() -> Regex {
