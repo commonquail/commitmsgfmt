@@ -26,7 +26,6 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut has_subject = false;
     let mut has_scissors = false;
     let lines = input.lines();
-    let trailer = mk_regex_trailer();
     let list_item = mk_regex_list_item();
     let mut px = false;
     for line in lines {
@@ -55,7 +54,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
             let key = splitter.next().unwrap().to_owned();
             let rest = splitter.next().unwrap().trim().to_owned();
             toks.push(Token::Footnote(key, rest));
-        } else if trailer.is_match(line) {
+        } else if is_line_trailer(line) {
             toks.push(Token::Trailer(line));
         } else if let Some(y) = match toks.last_mut() {
             Some(&mut Token::Footnote(_, ref mut b)) => extend_prose_buffer_with_line(b, line),
@@ -185,8 +184,49 @@ fn is_line_indented(line: &str) -> bool {
     line.starts_with("    ") || line.starts_with('\t')
 }
 
-fn mk_regex_trailer() -> Regex {
-    Regex::new(r"^\p{Alphabetic}[-\w]+: .+$").unwrap()
+fn is_line_trailer(line: &str) -> bool {
+    // As of Git 2.42:
+    //
+    // 1) A trailer is comprised of a trailer token, a ":" separator, and a value.
+    //
+    // 2) A trailer token's bytes either satisfy C89's isalnum() or equal ASCII "-".
+    //
+    // 3) A trailer token contains at least one byte not counting the separator.
+    //
+    // 4) Only the last trailer-like block is recognized, and if that trailer-block violates the
+    //    trailer token requirement then no trailer block is recognized.
+    //
+    // 5) A single trailer may have an empty value. If there are multiple trailers and one has an
+    //    empty value, that trailer will be merged with the previous or next trailer's value.
+    //
+    // Requirements 1) and 2) are easy and necessary. Requirement 3) has a tricky interaction with
+    // other functionality but we can probably disregard it, a trailer token of /^[a-z-]$/ seems
+    // like a terrible trailer.
+    //
+    // We don't care about requirements 4) or 5). That's more of a post-submission presentation
+    // matter, and implementing it would be needlessly complex, error prone, and most importantly
+    // very unergonomic during writing. This means we can recognize something as a trailer that Git
+    // would not recognize as a trailer but that's the sensible trade-off.
+
+    // We look for the space, not the colon. A space will come in almost every line so we'll find
+    // that after a typical word length's steps. Colons never occur so they'd take O(len(line))
+    // time to figure out nothing. When we do find a space it's constant time effort to locate a
+    // colon, which must come immediately before.
+    let trailer_token_with_colon = match line.find(' ') {
+        Some(ix_first_space) => &line[..ix_first_space],
+        None => return false,
+    };
+
+    if trailer_token_with_colon.len() < 3 {
+        return false;
+    }
+
+    let is_token_char = |c: char| c.is_ascii_alphanumeric() || c == '-';
+    let mut chars = trailer_token_with_colon.chars().rev();
+    match chars.next() {
+        Some(':') => chars.all(is_token_char),
+        _ => false,
+    }
 }
 
 fn mk_regex_list_item() -> Regex {
@@ -549,6 +589,69 @@ Signed-off-by: Jane Doe <jane@doe.com>
                 Trailer("Cc: John Doe <john@doe.com>"),
                 Trailer("Reviewed-by: NSA"),
                 Trailer("Signed-off-by: Jane Doe <jane@doe.com>"),
+            ],
+        );
+    }
+
+    #[test]
+    fn trailer_token_satisfies_isalnum_ish() {
+        assert_eq!(
+            parse(
+                "
+subject
+
+abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789: æøå
+æ: multi-byte token char
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject".to_owned()),
+                VerticalSpace,
+                Trailer("abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789: æøå"),
+                Paragraph("æ: multi-byte token char".to_owned()),
+            ],
+        );
+    }
+
+    #[test]
+    fn trailer_token_is_at_least_2_bytes() {
+        assert_eq!(
+            parse(
+                "
+subject
+
+ab: c
+a: b
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject".to_owned()),
+                VerticalSpace,
+                Trailer("ab: c"),
+                Paragraph("a: b".to_owned()),
+            ],
+        );
+    }
+
+    #[test]
+    fn trailer_must_have_value() {
+        assert_eq!(
+            parse(
+                "
+subject
+
+ab: c
+ab:
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject".to_owned()),
+                VerticalSpace,
+                Trailer("ab: c"),
+                Paragraph("ab:".to_owned()),
             ],
         );
     }
