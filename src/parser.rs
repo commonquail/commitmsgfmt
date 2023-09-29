@@ -234,7 +234,7 @@ fn mk_regex_list_item() -> Regex {
         r"(?x)
     ^(?P<indent>
     # Lists may be indented a little; too much and they become literals.
-    \s{0,2}
+    [\ ]{0,2}
     )
     (?P<li>
         (:?
@@ -826,6 +826,8 @@ paragraph
    - paragraph
 
 - spaced list item
+
+\t- tab indent is literal, not list item
 "
             ),
             [
@@ -874,6 +876,8 @@ paragraph
                     ListType("- ".to_owned()),
                     "spaced list item".to_owned()
                 ),
+                VerticalSpace,
+                Literal("\t- tab indent is literal, not list item"),
             ],
         );
     }
