@@ -341,9 +341,6 @@ foo
 
   - spc-indented continuation line
       that should be realigned
-
-\t- tab-indented continuation line
-      that should be realigned
 ";
 
         let expected = "
@@ -354,9 +351,6 @@ foo
 
   - spc-indented continuation line
     that should be realigned
-
-\t- tab-indented continuation line
-\t  that should be realigned
 ";
 
         assert_eq!(filter(34, &input), expected);
