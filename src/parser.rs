@@ -2,16 +2,16 @@ use regex::Regex;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ListType(pub String);
+pub struct ListType<'input>(pub &'input str);
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ListIndent(pub String);
+pub struct ListIndent<'input>(pub &'input str);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token<'input> {
     Comment(&'input str),
     Footnote(String, String),
-    ListItem(ListIndent, ListType, String),
+    ListItem(ListIndent<'input>, ListType<'input>, String),
     Literal(&'input str),
     Paragraph(String),
     Subject(String),
@@ -131,13 +131,13 @@ fn parse_subject(line: &str, toks: &mut Vec<Token>) {
     }
 }
 
-fn list_item_from_line<'a>(pat: &Regex, line: &str) -> Token<'a> {
+fn list_item_from_line<'input>(pat: &Regex, line: &'input str) -> Token<'input> {
     let captures = pat.captures(line).unwrap();
     let indent = captures.name("indent").unwrap();
     let li = captures.name("li").unwrap();
     Token::ListItem(
-        ListIndent(indent.as_str().to_owned()),
-        ListType(li.as_str().to_owned()),
+        ListIndent(indent.as_str()),
+        ListType(li.as_str()),
         line[li.end()..].to_owned(),
     )
 }
@@ -834,46 +834,42 @@ paragraph
                 VerticalSpace,
                 Subject("foo".to_owned()),
                 VerticalSpace,
+                ListItem(ListIndent(""), ListType("- "), "list item".to_owned()),
                 ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("- ".to_owned()),
-                    "list item".to_owned()
-                ),
-                ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("- ".to_owned()),
+                    ListIndent(""),
+                    ListType("- "),
                     "wrapped list item".to_owned()
                 ),
                 ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("- ".to_owned()),
+                    ListIndent(""),
+                    ListType("- "),
                     "over-indented continuation".to_owned()
                 ),
                 ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("- ".to_owned()),
+                    ListIndent(""),
+                    ListType("- "),
                     "under-indented continuation".to_owned()
                 ),
                 VerticalSpace,
                 Paragraph("paragraph".to_owned()),
                 VerticalSpace,
                 ListItem(
-                    ListIndent(" ".to_owned()),
-                    ListType("- ".to_owned()),
+                    ListIndent(" "),
+                    ListType("- "),
                     "indented list item".to_owned()
                 ),
                 VerticalSpace,
                 ListItem(
-                    ListIndent("  ".to_owned()),
-                    ListType("- ".to_owned()),
+                    ListIndent("  "),
+                    ListType("- "),
                     "indented list item".to_owned()
                 ),
                 VerticalSpace,
                 Paragraph("- paragraph".to_owned()),
                 VerticalSpace,
                 ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("- ".to_owned()),
+                    ListIndent(""),
+                    ListType("- "),
                     "spaced list item".to_owned()
                 ),
                 VerticalSpace,
@@ -918,59 +914,35 @@ foo
                 VerticalSpace,
                 Subject("foo".to_owned()),
                 VerticalSpace,
+                ListItem(ListIndent(""), ListType("- "), "dash".to_owned()),
+                ListItem(ListIndent(""), ListType("* "), "bullet".to_owned()),
+                ListItem(ListIndent(""), ListType("1. "), "numbered".to_owned()),
                 ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("- ".to_owned()),
-                    "dash".to_owned()
-                ),
-                ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("* ".to_owned()),
-                    "bullet".to_owned()
-                ),
-                ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("1. ".to_owned()),
-                    "numbered".to_owned()
-                ),
-                ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("0. ".to_owned()),
+                    ListIndent(""),
+                    ListType("0. "),
                     "unordered numbered".to_owned()
                 ),
+                ListItem(ListIndent(""), ListType("2) "), "numbered".to_owned()),
+                ListItem(ListIndent(""), ListType("3] "), "numbered".to_owned()),
+                ListItem(ListIndent(""), ListType("4: "), "numbered".to_owned()),
                 ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("2) ".to_owned()),
-                    "numbered".to_owned()
-                ),
-                ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("3] ".to_owned()),
-                    "numbered".to_owned()
-                ),
-                ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("4: ".to_owned()),
-                    "numbered".to_owned()
-                ),
-                ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("50) ".to_owned()),
+                    ListIndent(""),
+                    ListType("50) "),
                     "multi-digit numbered".to_owned()
                 ),
                 ListItem(
-                    ListIndent("".to_owned()),
-                    ListType("(1) ".to_owned()),
+                    ListIndent(""),
+                    ListType("(1) "),
                     "parenthesised list item".to_owned()
                 ),
                 ListItem(
-                    ListIndent(" ".to_owned()),
-                    ListType("(10) ".to_owned()),
+                    ListIndent(" "),
+                    ListType("(10) "),
                     "parenthesised list item".to_owned()
                 ),
                 ListItem(
-                    ListIndent("  ".to_owned()),
-                    ListType("(100) ".to_owned()),
+                    ListIndent("  "),
+                    ListType("(100) "),
                     "parenthesised list item".to_owned()
                 ),
                 VerticalSpace,
