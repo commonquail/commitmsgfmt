@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -6,13 +7,19 @@ pub struct ListType<'input>(pub &'input str);
 #[derive(Debug, PartialEq, Eq)]
 pub struct ListIndent<'input>(pub &'input str);
 
+type ReflowableStrBuf<'input> = Cow<'input, str>;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token<'input> {
     Comment(&'input str),
-    Footnote(&'input str, String),
-    ListItem(ListIndent<'input>, ListType<'input>, String),
+    Footnote(&'input str, ReflowableStrBuf<'input>),
+    ListItem(
+        ListIndent<'input>,
+        ListType<'input>,
+        ReflowableStrBuf<'input>,
+    ),
     Literal(&'input str),
-    Paragraph(String),
+    Paragraph(ReflowableStrBuf<'input>),
     Subject(&'input str),
     Scissored(&'input str),
     Trailer(&'input str),
@@ -50,7 +57,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
             debug_assert!(line.contains(' '));
             let mut splitter = line.splitn(2, ' ');
             let key = splitter.next().unwrap();
-            let rest = splitter.next().unwrap().trim().to_owned();
+            let rest = splitter.next().unwrap().trim().into();
             toks.push(Token::Footnote(key, rest));
         } else if is_line_trailer(line) {
             toks.push(Token::Trailer(line));
@@ -67,7 +74,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
                     Some(Token::Literal(line))
                 } else {
                     px = false;
-                    Some(Token::Paragraph(line.trim().to_owned()))
+                    Some(Token::Paragraph(line.trim().into()))
                 }
             }
         } {
@@ -120,12 +127,16 @@ fn parse_subject<'input>(line: &'input str, toks: &mut Vec<Token<'input>>) {
     if let Some(rest) = rest {
         let rest = rest.trim_start_matches('.');
         if !rest.is_empty() {
-            toks.push(Token::Paragraph(rest.trim().to_owned()));
+            toks.push(Token::Paragraph(rest.trim().into()));
         }
     }
 }
 
-fn extend_prose_buffer_with_line(ref mut buf: &mut String, line: &str) -> Option<Token<'static>> {
+fn extend_prose_buffer_with_line<'input>(
+    buf: &mut ReflowableStrBuf<'input>,
+    line: &'input str,
+) -> Option<Token<'static>> {
+    let buf = buf.to_mut();
     buf.push(' ');
     buf.push_str(line.trim());
     None
@@ -297,7 +308,7 @@ fn line_as_list_item(line: &str) -> Option<Token> {
     ix_li_content_start.map(|ix_li_content_start| {
         let li_indent = &line[..ix_li_type_start];
         let li_type = &line[ix_li_type_start..ix_li_content_start];
-        let li_content = line[ix_li_content_start..].to_owned();
+        let li_content = line[ix_li_content_start..].into();
         Token::ListItem(ListIndent(li_indent), ListType(li_type), li_content)
     })
 }
@@ -388,7 +399,7 @@ mod tests {
             [
                 Subject(&"f".repeat(SUBJECT_CHAR_LIMIT)),
                 VerticalSpace,
-                Paragraph("bar".to_owned()),
+                Paragraph("bar".into()),
             ],
         );
     }
@@ -434,7 +445,7 @@ mod tests {
             [
                 Subject(&expected_subject),
                 VerticalSpace,
-                Paragraph("abc . def".to_owned()),
+                Paragraph("abc . def".into()),
             ],
         );
     }
@@ -450,7 +461,7 @@ mod tests {
             [
                 Subject(&expected_subject),
                 VerticalSpace,
-                Paragraph("abc.def".to_owned()),
+                Paragraph("abc.def".into()),
             ],
         );
     }
@@ -472,11 +483,11 @@ paragraphs
             [
                 Subject("foo"),
                 VerticalSpace,
-                Paragraph("this is one paragraph".to_owned()),
+                Paragraph("this is one paragraph".into()),
                 VerticalSpace,
-                Paragraph("this is".to_owned()),
+                Paragraph("this is".into()),
                 Comment("# two"),
-                Paragraph("paragraphs".to_owned()),
+                Paragraph("paragraphs".into()),
             ]
         );
     }
@@ -494,7 +505,7 @@ trailing whitespace
             [
                 Subject("foo"),
                 VerticalSpace,
-                Paragraph("this paragraph has trailing whitespace".to_owned()),
+                Paragraph("this paragraph has trailing whitespace".into()),
             ]
         );
     }
@@ -519,12 +530,12 @@ some other paragraph
                 VerticalSpace,
                 Subject("some subject"),
                 VerticalSpace,
-                Paragraph("some paragraph".to_owned()),
+                Paragraph("some paragraph".into()),
                 VerticalSpace,
                 Literal("    some 4-space literal"),
                 Literal("      continuation"),
                 VerticalSpace,
-                Paragraph("some other paragraph no literal without vertical space".to_owned()),
+                Paragraph("some other paragraph no literal without vertical space".into()),
             ],
         );
     }
@@ -550,13 +561,13 @@ some other paragraph
                 VerticalSpace,
                 Subject("some subject"),
                 VerticalSpace,
-                Paragraph("some paragraph".to_owned()),
+                Paragraph("some paragraph".into()),
                 VerticalSpace,
                 Literal("\tsome 4-space literal"),
                 Literal("\t  continuation"),
                 Literal("\t\tcontinuation"),
                 VerticalSpace,
-                Paragraph("some other paragraph no literal without vertical space".to_owned()),
+                Paragraph("some other paragraph no literal without vertical space".into()),
             ],
         );
     }
@@ -589,13 +600,13 @@ some other paragraph
                 VerticalSpace,
                 Subject("some subject"),
                 VerticalSpace,
-                Paragraph("some paragraph".to_owned()),
+                Paragraph("some paragraph".into()),
                 VerticalSpace,
                 Literal("    some 4-space literal"),
                 Literal("    some 4-space literal"),
                 Literal("    some 4-space literal"),
                 VerticalSpace,
-                Paragraph("some other paragraph".to_owned()),
+                Paragraph("some other paragraph".into()),
             ],
         );
     }
@@ -648,7 +659,7 @@ abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789: æøå
                 Subject("subject"),
                 VerticalSpace,
                 Trailer("abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789: æøå"),
-                Paragraph("æ: multi-byte token char".to_owned()),
+                Paragraph("æ: multi-byte token char".into()),
             ],
         );
     }
@@ -669,7 +680,7 @@ a: b
                 Subject("subject"),
                 VerticalSpace,
                 Trailer("ab: c"),
-                Paragraph("a: b".to_owned()),
+                Paragraph("a: b".into()),
             ],
         );
     }
@@ -690,7 +701,7 @@ ab:
                 Subject("subject"),
                 VerticalSpace,
                 Trailer("ab: c"),
-                Paragraph("ab:".to_owned()),
+                Paragraph("ab:".into()),
             ],
         );
     }
@@ -719,17 +730,17 @@ subject
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Footnote("[1]", "footnote".to_owned()),
-                Footnote("[fo-ot]", "note".to_owned()),
-                Footnote("[ä]", "multi-code-point footnote key".to_owned()),
+                Footnote("[1]", "footnote".into()),
+                Footnote("[fo-ot]", "note".into()),
+                Footnote("[ä]", "multi-code-point footnote key".into()),
                 VerticalSpace,
-                Footnote("[@]:", "footnote".to_owned()),
+                Footnote("[@]:", "footnote".into()),
                 VerticalSpace,
-                Paragraph("[] not a footnote".to_owned()),
+                Paragraph("[] not a footnote".into()),
                 VerticalSpace,
-                Paragraph("[1]not a footnote".to_owned()),
+                Paragraph("[1]not a footnote".into()),
                 VerticalSpace,
-                Paragraph("[1]".to_owned()),
+                Paragraph("[1]".into()),
             ],
         );
     }
@@ -755,12 +766,12 @@ paragraph 2
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Paragraph("paragraph 1 [1] not footnote 1 [2] not footnote 2".to_owned()),
+                Paragraph("paragraph 1 [1] not footnote 1 [2] not footnote 2".into()),
                 VerticalSpace,
-                Paragraph("paragraph 2".to_owned()),
+                Paragraph("paragraph 2".into()),
                 VerticalSpace,
-                Footnote("[1]", "footnote 1".to_owned()),
-                Footnote("[2]", "footnote 2".to_owned()),
+                Footnote("[1]", "footnote 1".into()),
+                Footnote("[2]", "footnote 2".into()),
             ],
         );
     }
@@ -783,10 +794,10 @@ subject
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Footnote("[2]", "bar".to_owned()),
-                Footnote("[b]", "a".to_owned()),
-                Footnote("[a]", "b".to_owned()),
-                Footnote("[1]", "foo".to_owned()),
+                Footnote("[2]", "bar".into()),
+                Footnote("[b]", "a".into()),
+                Footnote("[a]", "b".into()),
+                Footnote("[1]", "foo".into()),
             ],
         );
     }
@@ -810,9 +821,9 @@ bar
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Footnote("[1]", "foo bar".to_owned()),
-                Footnote("[2]", "foo bar".to_owned()),
-                Footnote("[3]", "foo bar".to_owned()),
+                Footnote("[1]", "foo bar".into()),
+                Footnote("[2]", "foo bar".into()),
+                Footnote("[3]", "foo bar".into()),
             ],
         );
     }
@@ -833,8 +844,8 @@ subject
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Footnote("[1]", "foo".to_owned()),
-                Footnote("[1]", "bar".to_owned()),
+                Footnote("[1]", "foo".into()),
+                Footnote("[1]", "bar".into()),
             ],
         );
     }
@@ -873,44 +884,32 @@ paragraph
                 VerticalSpace,
                 Subject("foo"),
                 VerticalSpace,
-                ListItem(ListIndent(""), ListType("- "), "list item".to_owned()),
+                ListItem(ListIndent(""), ListType("- "), "list item".into()),
+                ListItem(ListIndent(""), ListType("- "), "wrapped list item".into()),
                 ListItem(
                     ListIndent(""),
                     ListType("- "),
-                    "wrapped list item".to_owned()
+                    "over-indented continuation".into()
                 ),
                 ListItem(
                     ListIndent(""),
                     ListType("- "),
-                    "over-indented continuation".to_owned()
-                ),
-                ListItem(
-                    ListIndent(""),
-                    ListType("- "),
-                    "under-indented continuation".to_owned()
+                    "under-indented continuation".into()
                 ),
                 VerticalSpace,
-                Paragraph("paragraph".to_owned()),
+                Paragraph("paragraph".into()),
                 VerticalSpace,
-                ListItem(
-                    ListIndent(" "),
-                    ListType("- "),
-                    "indented list item".to_owned()
-                ),
+                ListItem(ListIndent(" "), ListType("- "), "indented list item".into()),
                 VerticalSpace,
                 ListItem(
                     ListIndent("  "),
                     ListType("- "),
-                    "indented list item".to_owned()
+                    "indented list item".into()
                 ),
                 VerticalSpace,
-                Paragraph("- paragraph".to_owned()),
+                Paragraph("- paragraph".into()),
                 VerticalSpace,
-                ListItem(
-                    ListIndent(""),
-                    ListType("- "),
-                    "spaced list item".to_owned()
-                ),
+                ListItem(ListIndent(""), ListType("- "), "spaced list item".into()),
                 VerticalSpace,
                 Literal("\t- tab indent is literal, not list item"),
             ],
@@ -953,43 +952,39 @@ foo
                 VerticalSpace,
                 Subject("foo"),
                 VerticalSpace,
-                ListItem(ListIndent(""), ListType("- "), "dash".to_owned()),
-                ListItem(ListIndent(""), ListType("* "), "bullet".to_owned()),
-                ListItem(ListIndent(""), ListType("1. "), "numbered".to_owned()),
-                ListItem(
-                    ListIndent(""),
-                    ListType("0. "),
-                    "unordered numbered".to_owned()
-                ),
-                ListItem(ListIndent(""), ListType("2) "), "numbered".to_owned()),
-                ListItem(ListIndent(""), ListType("3] "), "numbered".to_owned()),
-                ListItem(ListIndent(""), ListType("4: "), "numbered".to_owned()),
+                ListItem(ListIndent(""), ListType("- "), "dash".into()),
+                ListItem(ListIndent(""), ListType("* "), "bullet".into()),
+                ListItem(ListIndent(""), ListType("1. "), "numbered".into()),
+                ListItem(ListIndent(""), ListType("0. "), "unordered numbered".into()),
+                ListItem(ListIndent(""), ListType("2) "), "numbered".into()),
+                ListItem(ListIndent(""), ListType("3] "), "numbered".into()),
+                ListItem(ListIndent(""), ListType("4: "), "numbered".into()),
                 ListItem(
                     ListIndent(""),
                     ListType("50) "),
-                    "multi-digit numbered".to_owned()
+                    "multi-digit numbered".into()
                 ),
                 ListItem(
                     ListIndent(""),
                     ListType("(1) "),
-                    "parenthesised list item".to_owned()
+                    "parenthesised list item".into()
                 ),
                 ListItem(
                     ListIndent(" "),
                     ListType("(10) "),
-                    "parenthesised list item".to_owned()
+                    "parenthesised list item".into()
                 ),
                 ListItem(
                     ListIndent("  "),
                     ListType("(100) "),
-                    "parenthesised list item".to_owned()
+                    "parenthesised list item".into()
                 ),
                 VerticalSpace,
-                Paragraph("6\tnot a list item".to_owned()),
+                Paragraph("6\tnot a list item".into()),
                 VerticalSpace,
-                Paragraph("7 not a list item".to_owned()),
+                Paragraph("7 not a list item".into()),
                 VerticalSpace,
-                Paragraph("-) not a list item".to_owned()),
+                Paragraph("-) not a list item".into()),
             ],
         );
     }
@@ -1015,7 +1010,7 @@ do
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Paragraph("format this".to_owned()),
+                Paragraph("format this".into()),
                 VerticalSpace,
                 Scissored("# ------------------------ >8 ------------------------"),
                 Scissored("do"),
@@ -1047,7 +1042,7 @@ do
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Paragraph("# ------------------------ >8 ------------------------ above is not a comment; do the needful".to_owned()),
+                Paragraph("# ------------------------ >8 ------------------------ above is not a comment; do the needful".into()),
                 VerticalSpace,
                 Scissored("$ ------------------------ >8 ------------------------"),
                 Scissored("do"),
