@@ -13,7 +13,7 @@ pub enum Token<'input> {
     ListItem(ListIndent<'input>, ListType<'input>, String),
     Literal(&'input str),
     Paragraph(String),
-    Subject(String),
+    Subject(&'input str),
     Scissored(&'input str),
     Trailer(&'input str),
     VerticalSpace,
@@ -85,7 +85,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
 
 const SUBJECT_CHAR_LIMIT: usize = 90;
 
-fn parse_subject(line: &str, toks: &mut Vec<Token>) {
+fn parse_subject<'input>(line: &'input str, toks: &mut Vec<Token<'input>>) {
     let line = line.trim_start();
     // If the subject has an autosquash pattern, return immediately. The
     // referenced commit may predate commitmsgfmt's rules so don't clean up the
@@ -114,7 +114,7 @@ fn parse_subject(line: &str, toks: &mut Vec<Token>) {
         (subject, rest)
     };
 
-    toks.push(Token::Subject(subject.to_owned()));
+    toks.push(Token::Subject(subject));
     toks.push(Token::VerticalSpace);
 
     if let Some(rest) = rest {
@@ -346,41 +346,38 @@ mod tests {
     #[test]
     fn parses_custom_comment() {
         assert_eq!(super::parse("@ foo", '@'), [Comment("@ foo")]);
-        assert_eq!(super::parse("# foo", '@'), [Subject("# foo".to_owned())]);
+        assert_eq!(super::parse("# foo", '@'), [Subject("# foo")]);
     }
 
     #[test]
     fn parses_mixed_comment_and_content() {
         assert_eq!(
             parse("# foo\n\n # bar"),
-            [Comment("# foo"), VerticalSpace, Subject("# bar".to_owned()),],
+            [Comment("# foo"), VerticalSpace, Subject("# bar"),],
         );
     }
 
     #[test]
     fn parses_subject() {
-        assert_eq!(parse("Hello, world"), [Subject("Hello, world".to_owned())]);
+        assert_eq!(parse("Hello, world"), [Subject("Hello, world")]);
     }
 
     #[test]
     fn parses_subject_trimming_start() {
-        assert_eq!(parse(" # foo"), [Subject("# foo".to_owned())]);
+        assert_eq!(parse(" # foo"), [Subject("# foo")]);
     }
 
     #[test]
     fn parses_subject_with_area() {
         let expected_subject = "foo: bar";
 
-        assert_eq!(
-            parse(expected_subject),
-            [Subject(expected_subject.to_owned())]
-        );
+        assert_eq!(parse(expected_subject), [Subject(expected_subject)]);
     }
 
     #[test]
     fn parses_fitting_subject() {
         let s = "f".repeat(SUBJECT_CHAR_LIMIT);
-        assert_eq!(parse(&s), [Subject(s.to_owned())]);
+        assert_eq!(parse(&s), [Subject(&s)]);
     }
 
     #[test]
@@ -389,7 +386,7 @@ mod tests {
         assert_eq!(
             parse(&s),
             [
-                Subject("f".repeat(SUBJECT_CHAR_LIMIT)),
+                Subject(&"f".repeat(SUBJECT_CHAR_LIMIT)),
                 VerticalSpace,
                 Paragraph("bar".to_owned()),
             ],
@@ -406,10 +403,7 @@ mod tests {
                 prefix = autosquash_prefix,
                 subject = original_subject
             );
-            assert_eq!(
-                parse(&autosquash_subject),
-                [Subject(autosquash_subject.to_owned()),],
-            );
+            assert_eq!(parse(&autosquash_subject), [Subject(&autosquash_subject),],);
         }
     }
 
@@ -419,14 +413,14 @@ mod tests {
 
         let s = expected_subject.clone() + "....";
 
-        assert_eq!(parse(&s), [Subject(expected_subject)]);
+        assert_eq!(parse(&s), [Subject(&expected_subject)]);
     }
 
     #[test]
     fn bug_subject_comprised_of_periods_becomes_empty() {
         let periods = "....";
 
-        assert_eq!(parse(&periods), [Subject("".to_owned())]);
+        assert_eq!(parse(&periods), [Subject("")]);
     }
 
     #[test]
@@ -438,7 +432,7 @@ mod tests {
         assert_eq!(
             parse(&s),
             [
-                Subject(expected_subject),
+                Subject(&expected_subject),
                 VerticalSpace,
                 Paragraph("abc . def".to_owned()),
             ],
@@ -454,7 +448,7 @@ mod tests {
         assert_eq!(
             parse(&s),
             [
-                Subject(expected_subject),
+                Subject(&expected_subject),
                 VerticalSpace,
                 Paragraph("abc.def".to_owned()),
             ],
@@ -476,7 +470,7 @@ paragraphs
 "
             ),
             [
-                Subject("foo".to_owned()),
+                Subject("foo"),
                 VerticalSpace,
                 Paragraph("this is one paragraph".to_owned()),
                 VerticalSpace,
@@ -498,7 +492,7 @@ trailing whitespace
 "
             ),
             [
-                Subject("foo".to_owned()),
+                Subject("foo"),
                 VerticalSpace,
                 Paragraph("this paragraph has trailing whitespace".to_owned()),
             ]
@@ -523,7 +517,7 @@ some other paragraph
             ),
             [
                 VerticalSpace,
-                Subject("some subject".to_owned()),
+                Subject("some subject"),
                 VerticalSpace,
                 Paragraph("some paragraph".to_owned()),
                 VerticalSpace,
@@ -554,7 +548,7 @@ some other paragraph
             ),
             [
                 VerticalSpace,
-                Subject("some subject".to_owned()),
+                Subject("some subject"),
                 VerticalSpace,
                 Paragraph("some paragraph".to_owned()),
                 VerticalSpace,
@@ -593,7 +587,7 @@ some other paragraph
             ),
             [
                 VerticalSpace,
-                Subject("some subject".to_owned()),
+                Subject("some subject"),
                 VerticalSpace,
                 Paragraph("some paragraph".to_owned()),
                 VerticalSpace,
@@ -628,7 +622,7 @@ Signed-off-by: Jane Doe <jane@doe.com>
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Trailer("Fixes: All the things"),
                 Trailer("Cc: John Doe <john@doe.com>"),
@@ -651,7 +645,7 @@ abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789: æøå
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Trailer("abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789: æøå"),
                 Paragraph("æ: multi-byte token char".to_owned()),
@@ -672,7 +666,7 @@ a: b
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Trailer("ab: c"),
                 Paragraph("a: b".to_owned()),
@@ -693,7 +687,7 @@ ab:
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Trailer("ab: c"),
                 Paragraph("ab:".to_owned()),
@@ -723,7 +717,7 @@ subject
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Footnote("[1]".to_owned(), "footnote".to_owned()),
                 Footnote("[fo-ot]".to_owned(), "note".to_owned()),
@@ -759,7 +753,7 @@ paragraph 2
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Paragraph("paragraph 1 [1] not footnote 1 [2] not footnote 2".to_owned()),
                 VerticalSpace,
@@ -787,7 +781,7 @@ subject
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Footnote("[2]".to_owned(), "bar".to_owned()),
                 Footnote("[b]".to_owned(), "a".to_owned()),
@@ -814,7 +808,7 @@ bar
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Footnote("[1]".to_owned(), "foo bar".to_owned()),
                 Footnote("[2]".to_owned(), "foo bar".to_owned()),
@@ -837,7 +831,7 @@ subject
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Footnote("[1]".to_owned(), "foo".to_owned()),
                 Footnote("[1]".to_owned(), "bar".to_owned()),
@@ -877,7 +871,7 @@ paragraph
             ),
             [
                 VerticalSpace,
-                Subject("foo".to_owned()),
+                Subject("foo"),
                 VerticalSpace,
                 ListItem(ListIndent(""), ListType("- "), "list item".to_owned()),
                 ListItem(
@@ -957,7 +951,7 @@ foo
             ),
             [
                 VerticalSpace,
-                Subject("foo".to_owned()),
+                Subject("foo"),
                 VerticalSpace,
                 ListItem(ListIndent(""), ListType("- "), "dash".to_owned()),
                 ListItem(ListIndent(""), ListType("* "), "bullet".to_owned()),
@@ -1019,7 +1013,7 @@ do
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Paragraph("format this".to_owned()),
                 VerticalSpace,
@@ -1051,7 +1045,7 @@ do
             ),
             [
                 VerticalSpace,
-                Subject("subject".to_owned()),
+                Subject("subject"),
                 VerticalSpace,
                 Paragraph("# ------------------------ >8 ------------------------ above is not a comment; do the needful".to_owned()),
                 VerticalSpace,
