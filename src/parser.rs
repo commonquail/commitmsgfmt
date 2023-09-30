@@ -1,4 +1,3 @@
-use regex::Regex;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -26,7 +25,6 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut has_subject = false;
     let mut has_scissors = false;
     let lines = input.lines();
-    let list_item = mk_regex_list_item();
     let mut px = false;
     for line in lines {
         if has_scissors {
@@ -60,15 +58,11 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
             Some(&mut Token::Footnote(_, ref mut b)) => extend_prose_buffer_with_line(b, line),
             Some(&mut Token::Paragraph(ref mut b)) => extend_prose_buffer_with_line(b, line),
             Some(&mut Token::ListItem(_, _, ref mut b)) => {
-                if list_item.is_match(line) {
-                    Some(list_item_from_line(&list_item, line))
-                } else {
-                    extend_prose_buffer_with_line(b, line)
-                }
+                line_as_list_item(line).or_else(|| extend_prose_buffer_with_line(b, line))
             }
             _ => {
-                if list_item.is_match(line) {
-                    Some(list_item_from_line(&list_item, line))
+                if let Some(tok) = line_as_list_item(line) {
+                    Some(tok)
                 } else if is_line_indented(line) {
                     Some(Token::Literal(line))
                 } else {
@@ -129,17 +123,6 @@ fn parse_subject(line: &str, toks: &mut Vec<Token>) {
             toks.push(Token::Paragraph(rest.trim().to_owned()));
         }
     }
-}
-
-fn list_item_from_line<'input>(pat: &Regex, line: &'input str) -> Token<'input> {
-    let captures = pat.captures(line).unwrap();
-    let indent = captures.name("indent").unwrap();
-    let li = captures.name("li").unwrap();
-    Token::ListItem(
-        ListIndent(indent.as_str()),
-        ListType(li.as_str()),
-        line[li.end()..].to_owned(),
-    )
 }
 
 fn extend_prose_buffer_with_line(ref mut buf: &mut String, line: &str) -> Option<Token<'static>> {
@@ -229,32 +212,94 @@ fn is_line_trailer(line: &str) -> bool {
     }
 }
 
-fn mk_regex_list_item() -> Regex {
-    Regex::new(
-        r"(?x)
-    ^(?P<indent>
-    # Lists may be indented a little; too much and they become literals.
-    [\ ]{0,2}
-    )
-    (?P<li>
-        (:?
-            # We recognize unnumbered list markers...
-            [-*]
-            |
-            (:?
-                # ... and numbered list markers...
-                \d+
-                # ... followed by some delimiter observed in the wild...
-                [.)\]:]
-                |
-                # ... or, alternatively, wrapped in parentheses...
-                \(\d+\)
-            )
-        )
-    # ... when the list item marker ends with at least one space.
-    \s+)",
-    )
-    .unwrap()
+fn line_as_list_item(line: &str) -> Option<Token> {
+    enum LiState {
+        New,
+        IndentSp1,
+        IndentSp2,
+        Ul,
+        Ol,
+        ParenWrappedOlOpen,
+        ParenWrappedOl,
+        OlClosed,
+        TrailingWs,
+        StopParse,
+    }
+
+    let mut li_state = LiState::New;
+    let mut ix_li_type_start = 0;
+    let mut ix_li_content_start: Option<usize> = None;
+    let mut iter = line.char_indices();
+    while let Some((ix, c)) = iter.next() {
+        match li_state {
+            LiState::New | LiState::IndentSp1 | LiState::IndentSp2 => {
+                ix_li_type_start = ix;
+                li_state = match c {
+                    ' ' => match li_state {
+                        LiState::New => LiState::IndentSp1,
+                        LiState::IndentSp1 => LiState::IndentSp2,
+                        _ => LiState::StopParse,
+                    },
+                    '-' | '*' => LiState::Ul,
+                    '(' => LiState::ParenWrappedOlOpen,
+                    _ if c.is_ascii_digit() => LiState::Ol,
+                    _ => LiState::StopParse,
+                };
+            }
+            LiState::Ul => {
+                li_state = if c.is_ascii_whitespace() {
+                    LiState::TrailingWs
+                } else {
+                    LiState::StopParse
+                }
+            }
+            LiState::ParenWrappedOlOpen => {
+                li_state = if c.is_ascii_digit() {
+                    LiState::ParenWrappedOl
+                } else {
+                    LiState::StopParse
+                }
+            }
+            LiState::ParenWrappedOl => {
+                if c == ')' {
+                    li_state = LiState::OlClosed;
+                } else if !c.is_ascii_digit() {
+                    li_state = LiState::StopParse;
+                }
+            }
+            LiState::Ol => match c {
+                ')' | '.' | ':' | ']' => {
+                    li_state = LiState::OlClosed;
+                }
+                _ => {
+                    if !c.is_ascii_digit() {
+                        li_state = LiState::StopParse;
+                    }
+                }
+            },
+            LiState::OlClosed => {
+                li_state = if c.is_ascii_whitespace() {
+                    LiState::TrailingWs
+                } else {
+                    LiState::StopParse
+                }
+            }
+            LiState::TrailingWs => {
+                if !c.is_ascii_whitespace() {
+                    ix_li_content_start = Some(ix);
+                    li_state = LiState::StopParse;
+                }
+            }
+            LiState::StopParse => break,
+        }
+    }
+
+    ix_li_content_start.map(|ix_li_content_start| {
+        let li_indent = &line[..ix_li_type_start];
+        let li_type = &line[ix_li_type_start..ix_li_content_start];
+        let li_content = line[ix_li_content_start..].to_owned();
+        Token::ListItem(ListIndent(li_indent), ListType(li_type), li_content)
+    })
 }
 
 #[cfg(test)]
