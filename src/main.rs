@@ -409,6 +409,140 @@ b o d y
         );
     }
 
+    #[test]
+    fn arg_help_prints_long_help() {
+        let mut cmd = target_binary();
+        cmd.arg("--help");
+        let output = run_debug_binary_no_input(cmd);
+
+        assert_cmd_success(&output);
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        let out_ci = out.to_lowercase();
+        assert!(out_ci.contains("usage:"));
+        assert!(out.contains("-h, --help"));
+        assert!(out.contains("-V, --version"));
+        assert!(out.contains("-w, --width"));
+        assert!(out.contains("exempt"));
+    }
+
+    #[test]
+    fn arg_h_prints_short_help() {
+        let mut cmd = target_binary();
+        cmd.arg("-h");
+        let output = run_debug_binary_no_input(cmd);
+
+        assert_cmd_success(&output);
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        let out_ci = out.to_lowercase();
+        assert!(out_ci.contains("usage:"));
+        assert!(out.contains("-h, --help"));
+        assert!(out.contains("-V, --version"));
+        assert!(out.contains("-w, --width"));
+        assert!(!out.contains("exempt"));
+    }
+
+    #[test]
+    fn arg_help_disables_arg_width() {
+        let mut cmd = target_binary();
+        cmd.args(&["--width", "10"]);
+        cmd.arg("--help");
+        let output = run_debug_binary_no_input(cmd);
+
+        assert_cmd_success(&output);
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        let out_ci = out.to_lowercase();
+        assert!(out_ci.contains("usage:"));
+    }
+
+    #[test]
+    fn arg_help_before_arg_version_prints_help() {
+        let mut cmd = target_binary();
+        cmd.arg("--help");
+        cmd.arg("--version");
+        let output = run_debug_binary_no_input(cmd);
+
+        assert_cmd_success(&output);
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        let out = out.to_lowercase();
+        assert!(out.contains("usage"));
+    }
+
+    #[test]
+    fn arg_version_prints_version() {
+        let mut cmd = target_binary();
+        cmd.arg("--version");
+        let output = run_debug_binary_no_input(cmd);
+
+        assert_cmd_success(&output);
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        let out = out.trim();
+
+        let parts: Vec<&str> = out.splitn(2, ' ').collect();
+        assert_eq!(2, parts.len());
+
+        let part_name = parts[0];
+        assert_eq!(part_name, "commitmsgfmt");
+
+        let part_ver = parts[1];
+        let char_is_version_specifier_allowed = |c: char| match c {
+            '.' | '-' | 'G' | 'I' | 'T' => true,
+            _ => c.is_ascii_digit(),
+        };
+        let satisfies_version_part_format = part_ver.chars().all(char_is_version_specifier_allowed);
+        assert!(satisfies_version_part_format);
+    }
+
+    #[test]
+    fn arg_version_short_form_is_capital_v() {
+        // "-V" is legacy from "clap". I would have used lowercase "-v".
+
+        let mut cmd = target_binary();
+        cmd.arg("-V");
+        let output = run_debug_binary_no_input(cmd);
+
+        assert_cmd_success(&output);
+
+        let out = String::from_utf8_lossy(&output.stdout);
+
+        let parts: Vec<&str> = out.splitn(2, ' ').collect();
+        assert_eq!(2, parts.len());
+
+        let part_name = parts[0];
+        assert_eq!(part_name, "commitmsgfmt");
+    }
+
+    #[test]
+    fn arg_version_disables_arg_width() {
+        let mut cmd = target_binary();
+        cmd.args(&["--width", "10"]);
+        cmd.arg("--version");
+        let output = run_debug_binary_no_input(cmd);
+
+        assert_cmd_success(&output);
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        assert!(out.contains("commitmsgfmt"));
+    }
+
+    #[test]
+    fn arg_version_before_arg_help_prints_version() {
+        let mut cmd = target_binary();
+        cmd.arg("--version");
+        cmd.arg("--help");
+        let output = run_debug_binary_no_input(cmd);
+
+        assert_cmd_success(&output);
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        let out = out.to_lowercase();
+        assert!(!out.contains("usage"));
+    }
+
     // Sometime after the release of v1.2.0, external changes to Travis CI have
     // caused this test to begin failing consistently. Anecdotally, it likewise
     // has a higher failure rate on Ubuntu 19.10 than in the past.
