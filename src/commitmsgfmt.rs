@@ -21,11 +21,20 @@ impl CommitMsgFmt {
 
     pub fn filter(&self, input: &str) -> String {
         let msg = parse(input, self.comment_char);
-        self.reflow(&msg)
+        // The output size can be less than the input size only if the input contains characters
+        // that will be trimmed, such as leading whitespace, which is improbable. It is more likely
+        // the output size will exceed the input size due to injected linefeeds and continuation
+        // indentation. There is no worthwhile way to dynamically estimate the size difference
+        // between input and output so we pad by a small constant factor big enough to fit the
+        // linefeeds of a 3rd quartile message of 14 lines, as if such a message were written in a
+        // single line.
+        let probable_capacity_required = input.len() + 20;
+        let mut buf = String::with_capacity(probable_capacity_required);
+        self.reflow_into(&mut buf, &msg);
+        buf
     }
 
-    fn reflow(&self, msg: &[Token]) -> String {
-        let mut buf = String::new();
+    fn reflow_into(&self, buf: &mut String, msg: &[Token]) {
         for tok in msg {
             match *tok {
                 Comment(ref s) | Literal(ref s) | Scissored(ref s) | Trailer(ref s) => {
@@ -40,16 +49,16 @@ impl CommitMsgFmt {
                     buf.push_str(indent);
                     buf.push_str(li);
 
-                    self.wrap_paragraph_into(&mut buf, s, Some(&continuation));
+                    self.wrap_paragraph_into(buf, s, Some(&continuation));
                 }
                 Paragraph(ref p) => {
-                    self.wrap_paragraph_into(&mut buf, p, None);
+                    self.wrap_paragraph_into(buf, p, None);
                 }
                 Footnote(ref key, ref rest) => {
                     buf.push_str(key);
                     buf.push(' ');
                     let continuation = " ".repeat(key.graphemes(true).count() + 1);
-                    self.wrap_paragraph_into(&mut buf, rest.trim(), Some(&continuation));
+                    self.wrap_paragraph_into(buf, rest.trim(), Some(&continuation));
                 }
                 Subject(ref s) => {
                     buf.push_str(s);
@@ -58,8 +67,6 @@ impl CommitMsgFmt {
             }
             buf.push('\n');
         }
-
-        buf
     }
 
     fn wrap_paragraph_into(&self, buf: &mut String, paragraph: &str, continuation: Option<&str>) {
