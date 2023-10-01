@@ -9,7 +9,7 @@ pub struct ListIndent<'input>(pub &'input str);
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token<'input> {
     Comment(&'input str),
-    Footnote(String, String),
+    Footnote(&'input str, String),
     ListItem(ListIndent<'input>, ListType<'input>, String),
     Literal(&'input str),
     Paragraph(String),
@@ -49,7 +49,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
         } else if px && is_line_footnote(line) {
             debug_assert!(line.contains(' '));
             let mut splitter = line.splitn(2, ' ');
-            let key = splitter.next().unwrap().to_owned();
+            let key = splitter.next().unwrap();
             let rest = splitter.next().unwrap().trim().to_owned();
             toks.push(Token::Footnote(key, rest));
         } else if is_line_trailer(line) {
@@ -719,11 +719,11 @@ subject
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Footnote("[1]".to_owned(), "footnote".to_owned()),
-                Footnote("[fo-ot]".to_owned(), "note".to_owned()),
-                Footnote("[ä]".to_owned(), "multi-code-point footnote key".to_owned()),
+                Footnote("[1]", "footnote".to_owned()),
+                Footnote("[fo-ot]", "note".to_owned()),
+                Footnote("[ä]", "multi-code-point footnote key".to_owned()),
                 VerticalSpace,
-                Footnote("[@]:".to_owned(), "footnote".to_owned()),
+                Footnote("[@]:", "footnote".to_owned()),
                 VerticalSpace,
                 Paragraph("[] not a footnote".to_owned()),
                 VerticalSpace,
@@ -759,8 +759,8 @@ paragraph 2
                 VerticalSpace,
                 Paragraph("paragraph 2".to_owned()),
                 VerticalSpace,
-                Footnote("[1]".to_owned(), "footnote 1".to_owned()),
-                Footnote("[2]".to_owned(), "footnote 2".to_owned()),
+                Footnote("[1]", "footnote 1".to_owned()),
+                Footnote("[2]", "footnote 2".to_owned()),
             ],
         );
     }
@@ -783,10 +783,10 @@ subject
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Footnote("[2]".to_owned(), "bar".to_owned()),
-                Footnote("[b]".to_owned(), "a".to_owned()),
-                Footnote("[a]".to_owned(), "b".to_owned()),
-                Footnote("[1]".to_owned(), "foo".to_owned()),
+                Footnote("[2]", "bar".to_owned()),
+                Footnote("[b]", "a".to_owned()),
+                Footnote("[a]", "b".to_owned()),
+                Footnote("[1]", "foo".to_owned()),
             ],
         );
     }
@@ -810,9 +810,9 @@ bar
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Footnote("[1]".to_owned(), "foo bar".to_owned()),
-                Footnote("[2]".to_owned(), "foo bar".to_owned()),
-                Footnote("[3]".to_owned(), "foo bar".to_owned()),
+                Footnote("[1]", "foo bar".to_owned()),
+                Footnote("[2]", "foo bar".to_owned()),
+                Footnote("[3]", "foo bar".to_owned()),
             ],
         );
     }
@@ -833,8 +833,8 @@ subject
                 VerticalSpace,
                 Subject("subject"),
                 VerticalSpace,
-                Footnote("[1]".to_owned(), "foo".to_owned()),
-                Footnote("[1]".to_owned(), "bar".to_owned()),
+                Footnote("[1]", "foo".to_owned()),
+                Footnote("[1]", "bar".to_owned()),
             ],
         );
     }
