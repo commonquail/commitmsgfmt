@@ -3,6 +3,10 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
+## Unreleased
+
+- If `--width` is specified multiple times, ignore all but the last occurrence.
+
 ## 1.5.0 - 2022-07-30
 
 - Fix an edge case where footnote references followed by punctuation would
