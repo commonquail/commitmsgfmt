@@ -219,6 +219,7 @@ mod tests {
 
     use std::process::Child;
     use std::process::Command;
+    use std::process::Output;
     use std::process::Stdio;
 
     fn cargo_run_cmd() -> Vec<String> {
@@ -253,6 +254,37 @@ mod tests {
         cmd
     }
 
+    fn run_debug_binary_no_input(mut cmd: Command) -> Output {
+        cmd.output().expect("run debug binary")
+    }
+
+    fn run_debug_binary_with_input(mut cmd: Command, input: &[u8]) -> Output {
+        use std::io::Write;
+        let mut cmd: Child = cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("spawn debug binary");
+
+        cmd.stdin
+            .as_mut()
+            .expect("child stdin")
+            .write_all(input)
+            .expect("write to child stdin");
+
+        cmd.wait_with_output().expect("run debug binary")
+    }
+
+    fn assert_cmd_success(output: &Output) {
+        assert!(output.status.success());
+        assert_stderr_empty(&output);
+    }
+
+    fn assert_stderr_empty(output: &Output) {
+        let err = String::from_utf8_lossy(&output.stderr);
+        assert!(err.is_empty());
+    }
+
     #[test]
     fn to_utf8_converts_utf_8_bytes_to_utf_8() {
         let some_utf_8_str = "å";
@@ -283,10 +315,8 @@ mod tests {
     }
 
     #[test]
-    fn width_0_exits_with_code_1() {
-        let output = target_binary_with_width("0")
-            .output()
-            .expect("run debug binary");
+    fn arg_width_0_exits_with_code_1() {
+        let output = run_debug_binary_no_input(target_binary_with_width("0"));
 
         assert_eq!(1, output.status.code().unwrap());
 
@@ -296,10 +326,8 @@ mod tests {
     }
 
     #[test]
-    fn width_0foo_exits_with_code_1() {
-        let output = target_binary_with_width("0foo")
-            .output()
-            .expect("run debug binary");
+    fn arg_width_0foo_exits_with_code_1() {
+        let output = run_debug_binary_no_input(target_binary_with_width("0foo"));
 
         assert_eq!(1, output.status.code().unwrap());
 
@@ -309,11 +337,11 @@ mod tests {
     }
 
     #[test]
-    fn width_with_multiple_values_exits_with_code_1() {
+    fn arg_width_with_multiple_values_exits_with_code_1() {
         let mut cmd = target_binary();
         cmd.args(&["-w", "1", "2"]);
 
-        let output = cmd.output().expect("run debug binary");
+        let output = run_debug_binary_no_input(cmd);
 
         assert_eq!(1, output.status.code().unwrap());
 
@@ -322,24 +350,11 @@ mod tests {
     }
 
     #[test]
-    fn width_1_wraps_body_at_width_1_and_exits_successfully() {
-        use std::io::Write;
+    fn arg_width_1_wraps_body_at_width_1_and_exits_successfully() {
+        let cmd = target_binary_with_width("1");
+        let output = run_debug_binary_with_input(cmd, b"subject\nb o d y");
 
-        let mut cmd: Child = target_binary_with_width("1")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("spawn debug binary");
-
-        cmd.stdin
-            .as_mut()
-            .expect("child stdin")
-            .write_all(b"subject\nb o d y")
-            .expect("write to child stdin");
-
-        let output = cmd.wait_with_output().expect("run debug binary");
-
-        assert!(output.status.success());
+        assert_cmd_success(&output);
 
         let out = String::from_utf8_lossy(&output.stdout);
         assert_eq!(
@@ -352,32 +367,15 @@ y
 ",
             out
         );
-
-        let err = String::from_utf8_lossy(&output.stderr);
-        assert!(err.is_empty());
     }
 
     #[test]
-    fn width_short_form_is_w() {
-        use std::io::Write;
-
+    fn arg_width_short_form_is_w() {
         let mut cmd = target_binary();
         cmd.args(&["-w", "1"]);
-        let mut cmd: Child = cmd
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("spawn debug binary");
+        let output = run_debug_binary_with_input(cmd, b"subject\nb o d y");
 
-        cmd.stdin
-            .as_mut()
-            .expect("child stdin")
-            .write_all(b"subject\nb o d y")
-            .expect("write to child stdin");
-
-        let output = cmd.wait_with_output().expect("run debug binary");
-
-        assert!(output.status.success());
+        assert_cmd_success(&output);
 
         let out = String::from_utf8_lossy(&output.stdout);
         assert_eq!(
@@ -390,34 +388,16 @@ y
 ",
             out
         );
-
-        let err = String::from_utf8_lossy(&output.stderr);
-        assert!(err.is_empty());
     }
 
     #[test]
-    fn only_last_specified_width_matters() {
-        use std::io::Write;
-
+    fn arg_width_only_last_specified_matters() {
         let mut cmd = target_binary_with_width("string");
         cmd.args(&["-w", "1"]);
         cmd.args(&["-w", "100"]);
+        let output = run_debug_binary_with_input(cmd, b"subject\nb o d y");
 
-        let mut cmd: Child = cmd
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("spawn debug binary");
-
-        cmd.stdin
-            .as_mut()
-            .expect("child stdin")
-            .write_all(b"subject\nb o d y")
-            .expect("write to child stdin");
-
-        let output = cmd.wait_with_output().expect("run debug binary");
-
-        assert!(output.status.success());
+        assert_cmd_success(&output);
 
         let out = String::from_utf8_lossy(&output.stdout);
         assert_eq!(
@@ -427,9 +407,6 @@ b o d y
 ",
             out
         );
-
-        let err = String::from_utf8_lossy(&output.stderr);
-        assert!(err.is_empty());
     }
 
     // Sometime after the release of v1.2.0, external changes to Travis CI have
@@ -516,8 +493,5 @@ b o d y
             .expect("trigger broken pipe for debug binary");
 
         assert_eq!(141, output.status.code().unwrap());
-
-        let err = String::from_utf8_lossy(&output.stderr);
-        assert!(err.is_empty());
     }
 }
