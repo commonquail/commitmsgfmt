@@ -80,7 +80,12 @@ impl Config {
     fn new(m: &ArgMatches) -> CliResult<Config> {
         use std::str::FromStr;
 
-        let width = m.value_of("width").map(i32::from_str).unwrap()?;
+        let width = m
+            .values_of("width")
+            .unwrap()
+            .last()
+            .map(i32::from_str)
+            .unwrap()?;
 
         if width < 1 {
             return Err(CliError::ArgWidthOutOfBounds(width));
@@ -123,6 +128,8 @@ fn main() {
                 .short("w")
                 .long("width")
                 .takes_value(true)
+                .number_of_values(1)
+                .multiple(true)
                 .default_value("72")
                 .hide_default_value(true)
                 .help("The message body max paragraph width. Default: 72.")
@@ -214,8 +221,8 @@ mod tests {
     use std::process::Command;
     use std::process::Stdio;
 
-    fn cargo_run_cmd(w: &str) -> Vec<String> {
-        let mut cmd: Vec<String> = Vec::with_capacity(8);
+    fn cargo_run_cmd() -> Vec<String> {
+        let mut cmd: Vec<String> = Vec::with_capacity(6);
         cmd.push("cargo".to_owned());
         cmd.push("run".to_owned());
         cmd.push("--quiet".to_owned());
@@ -226,16 +233,22 @@ mod tests {
         }
 
         cmd.push("--".to_owned());
-        cmd.push("--width".to_owned());
-        cmd.push(w.to_owned());
+
+        cmd
+    }
+
+    fn target_binary() -> Command {
+        let cargo_run = cargo_run_cmd();
+        let mut cmd = Command::new(&cargo_run[0]);
+        cmd.args(&cargo_run[1..]);
 
         cmd
     }
 
     fn target_binary_with_width(w: &str) -> Command {
-        let cargo_run = cargo_run_cmd(w);
-        let mut cmd = Command::new(&cargo_run[0]);
-        cmd.args(&cargo_run[1..]);
+        let mut cmd = target_binary();
+        cmd.arg("--width");
+        cmd.arg(w);
 
         cmd
     }
@@ -296,6 +309,19 @@ mod tests {
     }
 
     #[test]
+    fn width_with_multiple_values_exits_with_code_1() {
+        let mut cmd = target_binary();
+        cmd.args(&["-w", "1", "2"]);
+
+        let output = cmd.output().expect("run debug binary");
+
+        assert_eq!(1, output.status.code().unwrap());
+
+        let err = String::from_utf8_lossy(&output.stderr);
+        assert!(err.contains(r#"Found argument '2'"#));
+    }
+
+    #[test]
     fn width_1_wraps_body_at_width_1_and_exits_successfully() {
         use std::io::Write;
 
@@ -323,6 +349,81 @@ b
 o
 d
 y
+",
+            out
+        );
+
+        let err = String::from_utf8_lossy(&output.stderr);
+        assert!(err.is_empty());
+    }
+
+    #[test]
+    fn width_short_form_is_w() {
+        use std::io::Write;
+
+        let mut cmd = target_binary();
+        cmd.args(&["-w", "1"]);
+        let mut cmd: Child = cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("spawn debug binary");
+
+        cmd.stdin
+            .as_mut()
+            .expect("child stdin")
+            .write_all(b"subject\nb o d y")
+            .expect("write to child stdin");
+
+        let output = cmd.wait_with_output().expect("run debug binary");
+
+        assert!(output.status.success());
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(
+            "subject
+
+b
+o
+d
+y
+",
+            out
+        );
+
+        let err = String::from_utf8_lossy(&output.stderr);
+        assert!(err.is_empty());
+    }
+
+    #[test]
+    fn only_last_specified_width_matters() {
+        use std::io::Write;
+
+        let mut cmd = target_binary_with_width("string");
+        cmd.args(&["-w", "1"]);
+        cmd.args(&["-w", "100"]);
+
+        let mut cmd: Child = cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("spawn debug binary");
+
+        cmd.stdin
+            .as_mut()
+            .expect("child stdin")
+            .write_all(b"subject\nb o d y")
+            .expect("write to child stdin");
+
+        let output = cmd.wait_with_output().expect("run debug binary");
+
+        assert!(output.status.success());
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(
+            "subject
+
+b o d y
 ",
             out
         );
@@ -394,6 +495,9 @@ y
             })
             .unwrap_or("head");
 
+        let mut cargo_run_cmd = cargo_run_cmd();
+        cargo_run_cmd.push("--width".into());
+        cargo_run_cmd.push("72".into());
         let output = Command::new("bash")
             .args(&[
                 "-c",
@@ -402,7 +506,7 @@ y
                      set -o pipefail
                      {} < Cargo.lock |
                      {} -n0",
-                    cargo_run_cmd("72").join(" "),
+                    cargo_run_cmd.join(" "),
                     gnu_head
                 ),
             ])
