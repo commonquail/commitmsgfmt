@@ -23,6 +23,7 @@ pub enum Token<'input> {
     Subject(&'input str),
     Scissored(&'input str),
     Trailer(&'input str),
+    BlockQuote(&'input str),
     VerticalSpace,
 }
 
@@ -63,7 +64,9 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
             toks.push(Token::Trailer(line));
         } else if let Some(y) = match toks.last_mut() {
             Some(&mut Token::Footnote(_, ref mut b)) => extend_prose_buffer_with_line(b, line),
-            Some(&mut Token::Paragraph(ref mut b)) => extend_prose_buffer_with_line(b, line),
+            Some(&mut Token::Paragraph(ref mut b)) => {
+                line_as_line_block_quote(line).or_else(|| extend_prose_buffer_with_line(b, line))
+            }
             Some(&mut Token::ListItem(_, _, ref mut b)) => {
                 line_as_list_item(line).or_else(|| extend_prose_buffer_with_line(b, line))
             }
@@ -72,6 +75,8 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
                     Some(tok)
                 } else if is_line_indented(line) {
                     Some(Token::Literal(line))
+                } else if let Some(tok) = line_as_line_block_quote(line) {
+                    Some(tok)
                 } else {
                     px = false;
                     Some(Token::Paragraph(line.trim().into()))
@@ -311,6 +316,14 @@ fn line_as_list_item(line: &str) -> Option<Token> {
         let li_content = line[ix_li_content_start..].into();
         Token::ListItem(ListIndent(li_indent), ListType(li_type), li_content)
     })
+}
+
+fn line_as_line_block_quote(line: &str) -> Option<Token> {
+    if line.starts_with('>') {
+        Some(Token::BlockQuote(line))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -605,6 +618,113 @@ some other paragraph
                 Literal("    some 4-space literal"),
                 Literal("    some 4-space literal"),
                 Literal("    some 4-space literal"),
+                VerticalSpace,
+                Paragraph("some other paragraph".into()),
+            ],
+        );
+    }
+
+    #[test]
+    fn parses_block_quote_verbatim() {
+        assert_eq!(
+            parse(
+                "
+some subject
+
+some paragraph
+
+> some block quote
+
+some other paragraph
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("some subject"),
+                VerticalSpace,
+                Paragraph("some paragraph".into()),
+                VerticalSpace,
+                BlockQuote("> some block quote"),
+                VerticalSpace,
+                Paragraph("some other paragraph".into()),
+            ],
+        );
+    }
+
+    #[test]
+    fn parses_nested_block_quotes_verbatim() {
+        assert_eq!(
+            parse(
+                "
+some subject
+
+some paragraph
+
+> > some block quote
+
+some other paragraph
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("some subject"),
+                VerticalSpace,
+                Paragraph("some paragraph".into()),
+                VerticalSpace,
+                BlockQuote("> > some block quote"),
+                VerticalSpace,
+                Paragraph("some other paragraph".into()),
+            ],
+        );
+    }
+
+    #[test]
+    fn parses_nested_block_quotes_ignoring_quote_marker_spacing_and_quote_levels() {
+        assert_eq!(
+            parse(
+                "
+some subject
+
+some paragraph
+
+>>>> >>> >> some block quote
+
+some other paragraph
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("some subject"),
+                VerticalSpace,
+                Paragraph("some paragraph".into()),
+                VerticalSpace,
+                BlockQuote(">>>> >>> >> some block quote"),
+                VerticalSpace,
+                Paragraph("some other paragraph".into()),
+            ],
+        );
+    }
+
+    #[test]
+    fn parses_block_quote_with_immediately_preceding_paragraph_as_attribution_leaving_no_vertical_space(
+    ) {
+        assert_eq!(
+            parse(
+                "
+some subject
+
+some attribution paragraph
+> some block quote
+
+some other paragraph
+"
+            ),
+            [
+                VerticalSpace,
+                Subject("some subject"),
+                VerticalSpace,
+                Paragraph("some attribution paragraph".into()),
+                BlockQuote("> some block quote"),
                 VerticalSpace,
                 Paragraph("some other paragraph".into()),
             ],

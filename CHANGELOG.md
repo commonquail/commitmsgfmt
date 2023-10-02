@@ -5,6 +5,10 @@ understanding of patterns often seen in commit messages.
 
 ## Unreleased
 
+- #6: Recognize lines that begin with `>` as _block quotes_ and preserve them
+  in their entirety, and allow them to follow a preceding paragraph without the
+  empty line that is otherwise usually required.
+
 - If `--width` is specified multiple times, ignore all but the last occurrence.
 
 ## 1.5.0 - 2022-07-30
