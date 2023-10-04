@@ -373,7 +373,7 @@ y
     #[test]
     fn arg_width_short_form_is_w() {
         let mut cmd = target_binary();
-        cmd.args(&["-w", "1"]);
+        cmd.args(&["-w1"]);
         let output = run_debug_binary_with_input(cmd, b"subject\nb o d y");
 
         assert_cmd_success(&output);
@@ -421,9 +421,9 @@ b o d y
         let out = String::from_utf8_lossy(&output.stdout);
         let out_ci = out.to_lowercase();
         assert!(out_ci.contains("usage:"));
-        assert!(out.contains("-h, --help"));
-        assert!(out.contains("-V, --version"));
-        assert!(out.contains("-w, --width"));
+        assert!(out.contains("\n    -h, --help"));
+        assert!(out.contains("\n    -V, --version"));
+        assert!(out.contains("\n    -w, --width"));
         assert!(out.contains("exempt"));
     }
 
@@ -438,9 +438,9 @@ b o d y
         let out = String::from_utf8_lossy(&output.stdout);
         let out_ci = out.to_lowercase();
         assert!(out_ci.contains("usage:"));
-        assert!(out.contains("-h, --help"));
-        assert!(out.contains("-V, --version"));
-        assert!(out.contains("-w, --width"));
+        assert!(out.contains("\n    -h, --help"));
+        assert!(out.contains("\n    -V, --version"));
+        assert!(out.contains("\n    -w, --width"));
         assert!(!out.contains("exempt"));
     }
 
@@ -542,6 +542,19 @@ b o d y
         let out = String::from_utf8_lossy(&output.stdout);
         let out = out.to_lowercase();
         assert!(!out.contains("usage"));
+    }
+
+    #[test]
+    fn args_parse_combined_shortform() {
+        let mut cmd = target_binary();
+        cmd.arg("-hV");
+        let output = run_debug_binary_no_input(cmd);
+
+        assert_cmd_success(&output);
+
+        let out = String::from_utf8_lossy(&output.stdout);
+        let out = out.to_lowercase();
+        assert!(out.contains("usage"));
     }
 
     // Sometime after the release of v1.2.0, external changes to Travis CI have
