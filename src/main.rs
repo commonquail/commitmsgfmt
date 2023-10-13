@@ -13,41 +13,41 @@ mod commitmsgfmt;
 mod parser;
 mod worditer;
 
-type CliResult<T> = Result<T, CliError>;
+type CliResult<'a, T> = Result<T, CliError<'a>>;
 
 #[derive(Debug)]
-enum CliError {
+enum CliError<'a> {
     ArgWidthNaN(ParseIntError),
     ArgWidthOutOfBounds(i32),
     Io(io::Error),
-    Other(String),
+    Other(std::borrow::Cow<'a, str>),
 }
 
-impl From<io::Error> for CliError {
-    fn from(err: io::Error) -> CliError {
+impl<'a> From<io::Error> for CliError<'a> {
+    fn from(err: io::Error) -> CliError<'a> {
         CliError::Io(err)
     }
 }
 
-impl From<ParseIntError> for CliError {
-    fn from(err: ParseIntError) -> CliError {
+impl<'a> From<ParseIntError> for CliError<'a> {
+    fn from(err: ParseIntError) -> CliError<'a> {
         CliError::ArgWidthNaN(err)
     }
 }
 
-impl<'a> From<&'a str> for CliError {
-    fn from(err: &'a str) -> CliError {
-        CliError::Other(err.to_owned())
+impl<'a> From<&'a str> for CliError<'a> {
+    fn from(err: &'a str) -> CliError<'a> {
+        CliError::Other(err.into())
     }
 }
 
-impl From<String> for CliError {
-    fn from(err: String) -> CliError {
-        CliError::Other(err)
+impl<'a> From<String> for CliError<'a> {
+    fn from(err: String) -> CliError<'a> {
+        CliError::Other(err.into())
     }
 }
 
-impl fmt::Display for CliError {
+impl<'a> fmt::Display for CliError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             CliError::ArgWidthNaN(ref err) => write!(f, "--width: {}", err),
@@ -60,7 +60,7 @@ impl fmt::Display for CliError {
     }
 }
 
-impl Error for CliError {
+impl<'a> Error for CliError<'a> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match *self {
             CliError::ArgWidthNaN(ref err) => Some(err),
@@ -77,7 +77,7 @@ pub struct Config {
 }
 
 impl Config {
-    fn new(m: &ArgMatches) -> CliResult<Config> {
+    fn new<'a>(m: &ArgMatches) -> CliResult<'a, Config> {
         use std::str::FromStr;
 
         let width = m
@@ -163,7 +163,8 @@ Some text is exempt from wrapping:
 
     let result = read_all_bytes_from_stdin()
         .and_then(to_utf8)
-        .and_then(|text| to_stdout(&commitmsgfmt.filter(&text)));
+        .map(|text| commitmsgfmt.filter(&text))
+        .and_then(to_stdout);
 
     match result {
         Ok(()) => (),
@@ -178,7 +179,7 @@ Some text is exempt from wrapping:
     }
 }
 
-fn read_all_bytes_from_stdin() -> CliResult<Vec<u8>> {
+fn read_all_bytes_from_stdin<'a>() -> CliResult<'a, Vec<u8>> {
     let mut buf: Vec<u8> = Vec::new();
     let stdin = io::stdin();
     io::copy(&mut stdin.lock(), &mut buf)?;
@@ -186,18 +187,18 @@ fn read_all_bytes_from_stdin() -> CliResult<Vec<u8>> {
     Ok(buf)
 }
 
-fn to_utf8(bytes: Vec<u8>) -> CliResult<String> {
+fn to_utf8<'a>(bytes: Vec<u8>) -> CliResult<'a, String> {
     String::from_utf8(bytes).or_else(|e| from_iso_8859_1(&e.into_bytes()))
 }
 
-fn from_iso_8859_1(bytes: &[u8]) -> CliResult<String> {
+fn from_iso_8859_1<'a>(bytes: &[u8]) -> CliResult<'a, String> {
     use encoding::types::Encoding;
     encoding::all::ISO_8859_1
         .decode(bytes, encoding::DecoderTrap::Replace)
-        .map_err(|s| CliError::Other(s.into()))
+        .map_err(CliError::Other)
 }
 
-fn to_stdout(msg: &str) -> CliResult<()> {
+fn to_stdout<'a>(msg: String) -> CliResult<'a, ()> {
     use std::io::Write;
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
