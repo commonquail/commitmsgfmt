@@ -245,8 +245,7 @@ fn line_as_list_item(line: &str) -> Option<Token> {
     let mut li_state = LiState::New;
     let mut ix_li_type_start = 0;
     let mut ix_li_content_start: Option<usize> = None;
-    let mut iter = line.char_indices();
-    while let Some((ix, c)) = iter.next() {
+    for (ix, c) in line.char_indices() {
         match li_state {
             LiState::New | LiState::IndentSp1 | LiState::IndentSp2 => {
                 ix_li_type_start = ix;
