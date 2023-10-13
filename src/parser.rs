@@ -152,8 +152,8 @@ fn is_line_blank_or_whitespace(line: &str) -> bool {
 }
 
 fn is_line_footnote(line: &str) -> bool {
-    if line.starts_with('[') {
-        let mut chars = line[1..].chars();
+    if let Some(rest) = line.strip_prefix('[') {
+        let mut chars = rest.chars();
         if chars.next() == Some(']') {
             // Reject "[]"
             return false;
