@@ -155,7 +155,7 @@ Some text is exempt from wrapping:
 
     let cfg = Config::new(&m);
     if let Err(ref e) = cfg {
-        fatal(e);
+        exit_abnormally(e);
     }
     let cfg = cfg.unwrap();
 
@@ -166,16 +166,8 @@ Some text is exempt from wrapping:
         .map(|text| commitmsgfmt.filter(&text))
         .and_then(to_stdout);
 
-    match result {
-        Ok(()) => (),
-        Err(ref err) => match *err {
-            CliError::Io(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
-                std::process::exit(141 /* 128 + 13 */);
-            }
-            _ => {
-                fatal(err);
-            }
-        },
+    if let Err(ref e) = result {
+        exit_abnormally(e);
     }
 }
 
@@ -207,9 +199,19 @@ fn to_stdout<'a>(msg: String) -> CliResult<'a, ()> {
     Ok(())
 }
 
-fn fatal(e: &CliError) {
-    eprintln!("fatal: {}", e);
-    ::std::process::exit(1);
+fn exit_abnormally(e: &CliError) {
+    let ret = match e {
+        CliError::Io(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
+            let ret = 128 + 13;
+            debug_assert!(ret == 141);
+            ret
+        }
+        _ => {
+            eprintln!("fatal: {}", e);
+            1
+        }
+    };
+    ::std::process::exit(ret);
 }
 
 #[cfg(test)]
