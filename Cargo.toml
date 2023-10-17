@@ -12,7 +12,6 @@ edition = "2018"
 
 [dependencies]
 unicode-segmentation = "1.10.1"
-clap = "2.34.0"
 encoding = "0.2.33"
 
 [dev-dependencies]

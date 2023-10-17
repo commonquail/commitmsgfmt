@@ -1,9 +1,3 @@
-use clap::crate_description;
-use clap::crate_name;
-use clap::crate_version;
-use clap::App;
-use clap::Arg;
-use clap::ArgMatches;
 use std::error::Error;
 use std::fmt;
 use std::io;
@@ -13,12 +7,82 @@ mod commitmsgfmt;
 mod parser;
 mod worditer;
 
+// Hard-code program name in version output
+macro_rules! str_version {
+    () => {
+        concat!("commitmsgfmt ", env!("CARGO_PKG_VERSION"))
+    };
+}
+
+// Use dynamic binary name in help output
+macro_rules! str_help_common {
+    () => {
+        concat!(
+            str_version!(),
+            '\n',
+            r#"Formats commit messages better than fmt(1) and Vim
+
+USAGE:
+    {} [OPTIONS]
+
+FLAGS:"#
+        )
+    };
+}
+
+macro_rules! str_help_short {
+    () => {
+        concat!(
+            str_help_common!(),
+            r#"
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -w, --width <WIDTH>    The message body max paragraph width. Default: 72."#
+        )
+    };
+}
+
+macro_rules! str_help_long {
+    () => {
+        concat!(
+            str_help_common!(),
+            r#"
+    -h, --help
+            Prints help information
+
+    -V, --version
+            Prints version information
+
+
+OPTIONS:
+    -w, --width <WIDTH>
+            The max width, in graphemes, of regular paragraphs. Text will be wrapped at
+            the last space up to this limit, or at the limit, and list item continuations
+            indented. Default: 72.
+
+            Some text is exempt from wrapping:
+
+            - The subject line ignores this setting and is instead broken down into a
+              subject line and a paragraph after 90 graphemes. The subject line works best
+              across different formats when forced into a single line but this harsh
+              behaviour necessitates a laxer limit on its length to avoid rejecting too
+              many valid subjects.
+
+            - Text indented at least 4 spaces or 1 tab, and trailers, are printed unchanged."#
+        )
+    };
+}
+
 type CliResult<'a, T> = Result<T, CliError<'a>>;
 
 #[derive(Debug)]
 enum CliError<'a> {
+    ArgUnrecognized(std::borrow::Cow<'a, str>),
     ArgWidthNaN(ParseIntError),
     ArgWidthOutOfBounds(i32),
+    EarlyExit(std::borrow::Cow<'a, str>),
     Io(io::Error),
     Other(std::borrow::Cow<'a, str>),
 }
@@ -50,10 +114,12 @@ impl<'a> From<String> for CliError<'a> {
 impl<'a> fmt::Display for CliError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            CliError::ArgUnrecognized(ref s) => write!(f, "Found argument '{}'", s),
             CliError::ArgWidthNaN(ref err) => write!(f, "--width: {}", err),
             CliError::ArgWidthOutOfBounds(ref w) => {
                 write!(f, "--width must be greater than 0, was: '{}'", w)
             }
+            CliError::EarlyExit(ref s) => s.fmt(f),
             CliError::Io(ref err) => err.fmt(f),
             CliError::Other(ref s) => s.fmt(f),
         }
@@ -63,29 +129,49 @@ impl<'a> fmt::Display for CliError<'a> {
 impl<'a> Error for CliError<'a> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match *self {
+            CliError::ArgUnrecognized(_) => None,
             CliError::ArgWidthNaN(ref err) => Some(err),
             CliError::ArgWidthOutOfBounds(_) => None,
+            CliError::EarlyExit(_) => None,
             CliError::Io(ref err) => Some(err),
             CliError::Other(_) => None,
         }
     }
 }
 
+#[derive(Debug)]
+enum CliArgument<'a> {
+    HelpShort,
+    HelpLong,
+    Version,
+    Unsupported(&'a str),
+    Config(ConfigArgument<'a>),
+}
+
+#[derive(Debug)]
+enum ConfigArgument<'a> {
+    Width(Option<&'a str>),
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub struct Config {
     width: usize,
     comment_char: char,
 }
 
 impl Config {
-    fn new<'a>(m: &ArgMatches) -> CliResult<'a, Config> {
-        use std::str::FromStr;
+    fn new<'a>(args: &[ConfigArgument]) -> CliResult<'a, Config> {
+        let mut width: Option<&str> = None;
+        for arg in args {
+            match arg {
+                ConfigArgument::Width(s) => width = *s,
+            }
+        }
 
-        let width = m
-            .values_of("width")
-            .unwrap()
-            .last()
-            .map(i32::from_str)
-            .unwrap()?;
+        let width = width
+            .map(|w| i32::from_str_radix(w, 10))
+            .transpose()?
+            .unwrap_or(72);
 
         if width < 1 {
             return Err(CliError::ArgWidthOutOfBounds(width));
@@ -120,40 +206,8 @@ impl Config {
 }
 
 fn main() {
-    let m = App::new(crate_name!())
-        .about(crate_description!())
-        .version(crate_version!())
-        .arg(
-            Arg::with_name("width")
-                .short("w")
-                .long("width")
-                .takes_value(true)
-                .number_of_values(1)
-                .multiple(true)
-                .default_value("72")
-                .hide_default_value(true)
-                .help("The message body max paragraph width. Default: 72.")
-                .long_help(
-                    r#"The max width, in graphemes, of regular paragraphs. Text will be wrapped at
-the last space up to this limit, or at the limit, and list item continuations
-indented. Default: 72.
-
-Some text is exempt from wrapping:
-
-- The subject line ignores this setting and is instead broken down into a
-  subject line and a paragraph after 90 graphemes. The subject line works best
-  across different formats when forced into a single line but this harsh
-  behaviour necessitates a laxer limit on its length to avoid rejecting too
-  many valid subjects.
-
-- Text indented at least 4 spaces or 1 tab; trailers; and block quotes are
-  printed unchanged."#,
-                )
-                .value_name("WIDTH"),
-        )
-        .get_matches();
-
-    let cfg = Config::new(&m);
+    let command_line = std::env::args().collect::<Vec<String>>();
+    let cfg = try_config_from_command_line(&command_line);
     if let Err(ref e) = cfg {
         exit_abnormally(e);
     }
@@ -169,6 +223,79 @@ Some text is exempt from wrapping:
     if let Err(ref e) = result {
         exit_abnormally(e);
     }
+}
+
+fn try_config_from_command_line(args: &'_ [String]) -> CliResult<'_, Config> {
+    let (binary_path, args) = args.split_first().expect("binary has name");
+    parse_args(&args)
+        .into_iter()
+        .try_fold(vec![], |mut acc, arg| match arg {
+            CliArgument::HelpLong => Err(CliError::EarlyExit(
+                format!(str_help_long!(), binary_path).into(),
+            )),
+            CliArgument::HelpShort => Err(CliError::EarlyExit(
+                format!(str_help_short!(), binary_path).into(),
+            )),
+            CliArgument::Version => Err(CliError::EarlyExit(str_version!().into())),
+            CliArgument::Unsupported(a) => Err(CliError::ArgUnrecognized(a.into())),
+            CliArgument::Config(a) => {
+                acc.push(a);
+                Ok(acc)
+            }
+        })
+        .and_then(|config_args| Config::new(&config_args))
+}
+
+fn parse_args(args: &'_ [String]) -> Vec<CliArgument<'_>> {
+    let mut parsed_args = Vec::with_capacity(args.len());
+
+    let mut iter = args.iter().map(String::as_str);
+    while let Some(arg) = iter.next() {
+        if arg.starts_with("--") {
+            // "--width=42"
+            let mut kv = arg.splitn(2, '=');
+            let longopt_key = kv.next().expect("SplitN[0] exists");
+            let longopt_value = || {
+                kv.next().or_else(|| {
+                    std::mem::drop(kv);
+                    iter.next()
+                })
+            };
+            let parsed_arg = match longopt_key {
+                "--help" => CliArgument::HelpLong,
+                "--version" => CliArgument::Version,
+                "--width" => {
+                    let w = longopt_value();
+                    CliArgument::Config(ConfigArgument::Width(w))
+                }
+                _ => CliArgument::Unsupported(arg),
+            };
+            parsed_args.push(parsed_arg);
+        } else if arg.starts_with('-') {
+            for (ix, c) in arg.char_indices().skip(1) {
+                match c {
+                    'h' => parsed_args.push(CliArgument::HelpShort),
+                    'V' => parsed_args.push(CliArgument::Version),
+                    'w' => {
+                        let w = if ix < arg.len() - 1 {
+                            // "-w42"
+                            Some(&arg[ix + 1..])
+                        } else {
+                            // "-w 42"
+                            iter.next()
+                        };
+                        parsed_args.push(CliArgument::Config(ConfigArgument::Width(w)));
+                        break;
+                    }
+                    _ => parsed_args.push(CliArgument::Unsupported(arg)),
+                }
+            }
+        } else {
+            parsed_args.push(CliArgument::Unsupported(arg));
+        }
+    }
+
+    parsed_args
 }
 
 fn read_all_bytes_from_stdin<'a>() -> CliResult<'a, Vec<u8>> {
@@ -201,6 +328,10 @@ fn to_stdout<'a>(msg: String) -> CliResult<'a, ()> {
 
 fn exit_abnormally(e: &CliError) {
     let ret = match e {
+        CliError::EarlyExit(s) => {
+            println!("{}", s);
+            0
+        }
         CliError::Io(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
             let ret = 128 + 13;
             debug_assert!(ret == 141);
@@ -316,6 +447,121 @@ mod tests {
 
         assert_ne!(some_latin1_bytes, str_from_latin1.as_bytes());
         assert_eq!("å", str_from_latin1);
+    }
+
+    #[test]
+    fn smoke_decide_behavior_from_command_line() {
+        use crate::CliError::*;
+
+        let mut matrix = vec![];
+        matrix.push((
+            vec!["binary"],
+            Ok(Config {
+                width: 72,
+                comment_char: '#',
+            }),
+        ));
+        matrix.push((
+            vec!["binary", "--width"],
+            Ok(Config {
+                width: 72,
+                comment_char: '#',
+            }),
+        ));
+        matrix.push((
+            vec!["binary", "--width", "10"],
+            Ok(Config {
+                width: 10,
+                comment_char: '#',
+            }),
+        ));
+        matrix.push((
+            vec!["binary", "--width=21"],
+            Ok(Config {
+                width: 21,
+                comment_char: '#',
+            }),
+        ));
+        matrix.push((
+            vec!["binary", "-w"],
+            Ok(Config {
+                width: 72,
+                comment_char: '#',
+            }),
+        ));
+        matrix.push((
+            vec!["binary", "-w37"],
+            Ok(Config {
+                width: 37,
+                comment_char: '#',
+            }),
+        ));
+        matrix.push((
+            vec!["binary", "-w37", "-w42"],
+            Ok(Config {
+                width: 42,
+                comment_char: '#',
+            }),
+        ));
+        matrix.push((
+            vec!["binary", "--nonexistent"],
+            Err(ArgUnrecognized("--nonexistent".into())),
+        ));
+        matrix.push((vec!["binary", "-w0"], Err(ArgWidthOutOfBounds(0))));
+        matrix.push((
+            vec!["binary", "--width=nan"],
+            Err(ArgWidthNaN(i32::from_str_radix("nan", 10).unwrap_err())),
+        ));
+        matrix.push((
+            vec!["path1", "--help"],
+            Err(EarlyExit(format!(str_help_long!(), "path1").into())),
+        ));
+        matrix.push((
+            vec!["path2", "--version"],
+            Err(EarlyExit(str_version!().into())),
+        ));
+        matrix.push((
+            vec!["/path3", "-h"],
+            Err(EarlyExit(format!(str_help_short!(), "/path3").into())),
+        ));
+        matrix.push((vec!["./path4", "-V"], Err(EarlyExit(str_version!().into()))));
+        matrix.push((
+            vec!["p/ath/5", "-Vh"],
+            Err(EarlyExit(str_version!().into())),
+        ));
+        matrix.push((
+            vec!["./path/6", "-hV"],
+            Err(EarlyExit(format!(str_help_short!(), "./path/6").into())),
+        ));
+
+        for (args, expected) in matrix {
+            let args = args.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+            let actual = try_config_from_command_line(&args);
+
+            match (expected, actual) {
+                (Ok(expected), Ok(actual)) => {
+                    assert_eq!(actual, expected);
+                }
+                (Err(ArgUnrecognized(expected)), Err(ArgUnrecognized(actual))) => {
+                    assert_eq!(actual, expected);
+                }
+                (Err(ArgWidthNaN(expected)), Err(ArgWidthNaN(actual))) => {
+                    assert_eq!(actual, expected);
+                }
+                (Err(ArgWidthOutOfBounds(expected)), Err(ArgWidthOutOfBounds(actual))) => {
+                    assert_eq!(actual, expected);
+                }
+                (Err(EarlyExit(expected)), Err(EarlyExit(actual))) => {
+                    assert_eq!(actual, expected);
+                }
+                (expected, actual) => {
+                    panic!(
+                        "induce failure for debugging: for {:?} expected {:?}, was {:?}",
+                        args, expected, actual
+                    );
+                }
+            }
+        }
     }
 
     #[test]
