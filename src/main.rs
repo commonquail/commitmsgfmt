@@ -100,18 +100,6 @@ impl<'a> From<ParseIntError> for CliError<'a> {
     }
 }
 
-impl<'a> From<&'a str> for CliError<'a> {
-    fn from(err: &'a str) -> CliError<'a> {
-        CliError::Other(err.into())
-    }
-}
-
-impl<'a> From<String> for CliError<'a> {
-    fn from(err: String) -> CliError<'a> {
-        CliError::Other(err.into())
-    }
-}
-
 impl<'a> fmt::Display for CliError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -140,7 +128,6 @@ impl<'a> Error for CliError<'a> {
     }
 }
 
-#[derive(Debug)]
 enum CliArgument<'a> {
     HelpShort,
     HelpLong,
@@ -149,7 +136,6 @@ enum CliArgument<'a> {
     Config(ConfigArgument<'a>),
 }
 
-#[derive(Debug)]
 enum ConfigArgument<'a> {
     Width(Option<&'a str>),
 }
