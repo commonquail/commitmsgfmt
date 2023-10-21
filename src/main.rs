@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 use std::io;
@@ -79,12 +80,12 @@ type CliResult<'a, T> = Result<T, CliError<'a>>;
 
 #[derive(Debug)]
 enum CliError<'a> {
-    ArgUnrecognized(std::borrow::Cow<'a, str>),
+    ArgUnrecognized(Cow<'a, str>),
     ArgWidthNaN(ParseIntError),
     ArgWidthOutOfBounds(i32),
-    EarlyExit(std::borrow::Cow<'a, str>),
+    EarlyExit(Cow<'a, str>),
     Io(io::Error),
-    Other(std::borrow::Cow<'a, str>),
+    Other(Cow<'a, str>),
 }
 
 impl<'a> From<io::Error> for CliError<'a> {
