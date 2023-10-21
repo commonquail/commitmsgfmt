@@ -437,6 +437,65 @@ mod tests {
     }
 
     #[test]
+    fn impl_clierror_display_debug() {
+        #[derive(Debug, PartialEq)]
+        struct Expect<'a> {
+            display: Cow<'a, str>,
+            debug: Cow<'a, str>,
+        }
+        impl<'a> Expect<'a> {
+            fn display_debug(display: Cow<'a, str>, debug: Cow<'a, str>) -> Self {
+                Self { display, debug }
+            }
+        }
+        let errs = vec![
+            (
+                CliError::ArgUnrecognized("foo".into()),
+                Expect::display_debug(
+                    r#"Found argument 'foo'"#.into(),
+                    r#"ArgUnrecognized("foo")"#.into(),
+                ),
+            ),
+            (
+                CliError::from(i32::from_str_radix("nan", 10).unwrap_err()),
+                Expect::display_debug(
+                    "--width: invalid digit found in string".into(),
+                    "ArgWidthNaN(ParseIntError { kind: InvalidDigit })".into(),
+                ),
+            ),
+            (
+                CliError::ArgWidthOutOfBounds(0),
+                Expect::display_debug(
+                    "--width must be greater than 0, was: '0'".into(),
+                    "ArgWidthOutOfBounds(0)".into(),
+                ),
+            ),
+            (
+                CliError::EarlyExit("help".into()),
+                Expect::display_debug(r#"help"#.into(), r#"EarlyExit("help")"#.into()),
+            ),
+            (
+                CliError::from(io::Error::from(io::ErrorKind::BrokenPipe)),
+                Expect::display_debug(r#"broken pipe"#.into(), r#"Io(Kind(BrokenPipe))"#.into()),
+            ),
+            (
+                CliError::Other("other".into()),
+                Expect::display_debug(r#"other"#.into(), r#"Other("other")"#.into()),
+            ),
+        ];
+        let (actual, expected): (Vec<_>, Vec<_>) = errs
+            .into_iter()
+            .map(|(input, ex)| {
+                let actual_display = format!("{}", &input);
+                let actual_debug = format!("{:?}", &input);
+                let actual = Expect::display_debug(actual_display.into(), actual_debug.into());
+                (actual, ex)
+            })
+            .unzip();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
     fn smoke_decide_behavior_from_command_line() {
         use crate::CliError::*;
 
@@ -493,6 +552,14 @@ mod tests {
         matrix.push((
             vec!["binary", "--nonexistent"],
             Err(ArgUnrecognized("--nonexistent".into())),
+        ));
+        matrix.push((
+            vec!["binary", "nonexistent"],
+            Err(ArgUnrecognized("nonexistent".into())),
+        ));
+        matrix.push((
+            vec!["binary", "-uw42"],
+            Err(ArgUnrecognized("-uw42".into())),
         ));
         matrix.push((vec!["binary", "-w0"], Err(ArgWidthOutOfBounds(0))));
         matrix.push((
