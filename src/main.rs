@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 use std::io;
-use std::num::ParseIntError;
 
 mod commitmsgfmt;
 mod parser;
@@ -81,7 +80,7 @@ type CliResult<'a, T> = Result<T, CliError<'a>>;
 #[derive(Debug)]
 enum CliError<'a> {
     ArgUnrecognized(Cow<'a, str>),
-    ArgWidthNaN(ParseIntError),
+    ArgWidthNaN(Cow<'a, str>),
     ArgWidthOutOfBounds(i32),
     EarlyExit(Cow<'a, str>),
     Io(io::Error),
@@ -94,19 +93,15 @@ impl<'a> From<io::Error> for CliError<'a> {
     }
 }
 
-impl<'a> From<ParseIntError> for CliError<'a> {
-    fn from(err: ParseIntError) -> CliError<'a> {
-        CliError::ArgWidthNaN(err)
-    }
-}
-
 impl<'a> fmt::Display for CliError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             CliError::ArgUnrecognized(ref s) => write!(f, "Found argument '{}'", s),
-            CliError::ArgWidthNaN(ref err) => write!(f, "--width: {}", err),
+            CliError::ArgWidthNaN(ref w) => {
+                write!(f, "--width: must be a positive integer, was: '{}'", w)
+            }
             CliError::ArgWidthOutOfBounds(ref w) => {
-                write!(f, "--width must be greater than 0, was: '{}'", w)
+                write!(f, "--width: must be greater than 0, was: '{}'", w)
             }
             CliError::EarlyExit(ref s) => s.fmt(f),
             CliError::Io(ref err) => err.fmt(f),
@@ -119,7 +114,7 @@ impl<'a> Error for CliError<'a> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match *self {
             CliError::ArgUnrecognized(_) => None,
-            CliError::ArgWidthNaN(ref err) => Some(err),
+            CliError::ArgWidthNaN(_) => None,
             CliError::ArgWidthOutOfBounds(_) => None,
             CliError::EarlyExit(_) => None,
             CliError::Io(ref err) => Some(err),
@@ -147,16 +142,16 @@ pub struct Config {
 }
 
 impl Config {
-    fn new<'a>(args: &[ConfigArgument]) -> CliResult<'a, Config> {
+    fn new<'a>(args: Vec<ConfigArgument<'a>>) -> CliResult<'a, Config> {
         let mut width: Option<&str> = None;
         for arg in args {
             match arg {
-                ConfigArgument::Width(s) => width = *s,
+                ConfigArgument::Width(s) => width = s,
             }
         }
 
         let width = width
-            .map(|w| i32::from_str_radix(w, 10))
+            .map(|w| i32::from_str_radix(w, 10).map_err(|_| CliError::ArgWidthNaN(w.into())))
             .transpose()?
             .unwrap_or(72);
 
@@ -231,7 +226,7 @@ fn try_config_from_command_line(args: &'_ [String]) -> CliResult<'_, Config> {
                 Ok(acc)
             }
         })
-        .and_then(|config_args| Config::new(&config_args))
+        .and_then(Config::new)
 }
 
 fn parse_args(args: &'_ [String]) -> Vec<CliArgument<'_>> {
@@ -458,16 +453,16 @@ mod tests {
                 ),
             ),
             (
-                CliError::from(i32::from_str_radix("nan", 10).unwrap_err()),
+                CliError::ArgWidthNaN("nan".into()),
                 Expect::display_debug(
-                    "--width: invalid digit found in string".into(),
-                    "ArgWidthNaN(ParseIntError { kind: InvalidDigit })".into(),
+                    "--width: must be a positive integer, was: 'nan'".into(),
+                    r#"ArgWidthNaN("nan")"#.into(),
                 ),
             ),
             (
                 CliError::ArgWidthOutOfBounds(0),
                 Expect::display_debug(
-                    "--width must be greater than 0, was: '0'".into(),
+                    "--width: must be greater than 0, was: '0'".into(),
                     "ArgWidthOutOfBounds(0)".into(),
                 ),
             ),
@@ -565,7 +560,7 @@ mod tests {
         matrix.push((vec!["binary", "-w0"], Err(ArgWidthOutOfBounds(0))));
         matrix.push((
             vec!["binary", "--width=nan"],
-            Err(ArgWidthNaN(i32::from_str_radix("nan", 10).unwrap_err())),
+            Err(ArgWidthNaN("nan".into())),
         ));
         matrix.push((
             vec!["path1", "--help"],
@@ -647,7 +642,6 @@ mod tests {
 
         let err = String::from_utf8_lossy(&output.stderr);
         assert!(err.contains("--width"));
-        assert!(err.contains("greater"));
     }
 
     #[test]
@@ -658,7 +652,6 @@ mod tests {
 
         let err = String::from_utf8_lossy(&output.stderr);
         assert!(err.contains("--width"));
-        assert!(err.contains("invalid digit"));
     }
 
     #[test]
