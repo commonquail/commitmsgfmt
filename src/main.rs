@@ -17,16 +17,11 @@ macro_rules! str_version {
 // Use dynamic binary name in help output
 macro_rules! str_help_common {
     () => {
-        concat!(
-            str_version!(),
-            '\n',
-            r#"Formats commit messages better than fmt(1) and Vim
+        r#"Usage: {} [OPTIONS]
+Formats commit messages better than fmt(1) and Vim
 
-USAGE:
-    {} [OPTIONS]
-
-FLAGS:"#
-        )
+  -h, --help        Prints help information
+  -V, --version     Prints version information"#
     };
 }
 
@@ -35,11 +30,7 @@ macro_rules! str_help_short {
         concat!(
             str_help_common!(),
             r#"
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-
-OPTIONS:
-    -w, --width <WIDTH>    The message body max paragraph width. Default: 72."#
+  -w, --width <NUM> The message body max paragraph width. Default: 72."#
         )
     };
 }
@@ -49,28 +40,21 @@ macro_rules! str_help_long {
         concat!(
             str_help_common!(),
             r#"
-    -h, --help
-            Prints help information
-
-    -V, --version
-            Prints version information
-
-
-OPTIONS:
-    -w, --width <WIDTH>
-            The max width, in graphemes, of regular paragraphs. Text will be wrapped at
-            the last space up to this limit, or at the limit, and list item continuations
-            indented. Default: 72.
+  -w, --width <NUM>
+            The max width, in graphemes, of regular paragraphs. Text will be
+            wrapped at the last space up to this limit, or at the limit, and
+            list item continuations indented. Default: 72.
 
             Some text is exempt from wrapping:
 
-            - The subject line ignores this setting and is instead broken down into a
-              subject line and a paragraph after 90 graphemes. The subject line works best
-              across different formats when forced into a single line but this harsh
-              behaviour necessitates a laxer limit on its length to avoid rejecting too
-              many valid subjects.
+            - The subject line ignores this setting and is instead broken down
+              into a subject line and a paragraph after 90 graphemes. The
+              subject line works best across different formats when forced into
+              a single line but this harsh behaviour necessitates a laxer limit
+              on its length to avoid rejecting too many valid subjects.
 
-            - Text indented at least 4 spaces or 1 tab, and trailers, are printed unchanged."#
+            - Text indented at least 4 spaces or 1 tab; trailers; and block
+              quotes are printed unchanged."#
         )
     };
 }
@@ -738,9 +722,9 @@ b o d y
         let out = String::from_utf8_lossy(&output.stdout);
         let out_ci = out.to_lowercase();
         assert!(out_ci.contains("usage:"));
-        assert!(out.contains("\n    -h, --help"));
-        assert!(out.contains("\n    -V, --version"));
-        assert!(out.contains("\n    -w, --width"));
+        assert!(out.contains("\n  -h, --help"));
+        assert!(out.contains("\n  -V, --version"));
+        assert!(out.contains("\n  -w, --width"));
         assert!(out.contains("exempt"));
     }
 
@@ -755,9 +739,9 @@ b o d y
         let out = String::from_utf8_lossy(&output.stdout);
         let out_ci = out.to_lowercase();
         assert!(out_ci.contains("usage:"));
-        assert!(out.contains("\n    -h, --help"));
-        assert!(out.contains("\n    -V, --version"));
-        assert!(out.contains("\n    -w, --width"));
+        assert!(out.contains("\n  -h, --help"));
+        assert!(out.contains("\n  -V, --version"));
+        assert!(out.contains("\n  -w, --width"));
         assert!(!out.contains("exempt"));
     }
 
