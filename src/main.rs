@@ -166,29 +166,30 @@ impl Config {
 
         let cfg = Config {
             width: width as usize,
-            comment_char: Config::comment_char_from_git(),
+            comment_char: parse_git_config_commentchar(git_config_commentchar()),
         };
 
         Ok(cfg)
     }
+}
 
-    fn comment_char_from_git() -> char {
-        use std::process::Command;
+fn git_config_commentchar() -> Result<Vec<u8>, io::Error> {
+    std::process::Command::new("git")
+        .args(&["config", "core.commentChar"])
+        .output()
+        .map(|o| o.stdout)
+}
 
-        let output: Vec<u8> = Command::new("git")
-            .args(&["config", "core.commentChar"])
-            .output()
-            .map(|o| o.stdout)
-            .unwrap_or_else(|_| "#".into());
+fn parse_git_config_commentchar(git_output: Result<Vec<u8>, io::Error>) -> char {
+    let output: Vec<u8> = git_output.unwrap_or_else(|_| "#".into());
 
-        // The setting is either unset, "auto", or precisely 1 ASCII character;
-        // Git won't commit with an invalid configuration value. "auto" support
-        // can be added on-demand, it requires at least 2 passes.
-        if output.is_empty() || output == b"auto" {
-            '#'
-        } else {
-            output[0].into()
-        }
+    // The setting is either unset, "auto", or precisely 1 ASCII character;
+    // Git won't commit with an invalid configuration value. "auto" support
+    // can be added on-demand, it requires at least 2 passes.
+    if output.is_empty() || output == b"auto" {
+        '#'
+    } else {
+        output[0].into()
     }
 }
 
@@ -616,6 +617,26 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn parses_git_config_commentchar() {
+        let matrix = vec![
+            (Ok("".into()), '#'),
+            (Ok("auto".into()), '#'),
+            (Ok("#".into()), '#'),
+            (Ok("xy".into()), 'x'),
+            (Err(io::Error::from(io::ErrorKind::PermissionDenied)), '#'),
+        ];
+        let (actual, expected): (Vec<_>, Vec<_>) = matrix
+            .into_iter()
+            .map(|(input, expected)| {
+                let x = format!("{:?}", &input);
+                let actual = parse_git_config_commentchar(input);
+                ((x.clone(), actual), (x, expected))
+            })
+            .unzip();
+        assert_eq!(expected, actual);
     }
 
     #[test]
