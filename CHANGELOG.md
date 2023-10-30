@@ -19,6 +19,51 @@ understanding of patterns often seen in commit messages.
 
 - If `--width` is specified multiple times, ignore all but the last occurrence.
 
+- A large number of straightforward optimizations reduce total third-party
+  dependency count; compilation time; execution time; and dynamic memory
+  allocations. See below for details.
+
+The optimization impact is measured with `hyperfine` and Valgrind's massif for
+three distinct inputs: an empty file, a file that corresponds to the 3rd
+quartile of message sizes, and Project Gutenberg's _Don Quixote_ in plain-text
+[[quixote]], where
+
+    $ wc corpus-* | grep [.]
+         14      82     577 corpus-3rd-qu.txt
+      43285  430276 2391727 corpus-don-quixote.txt
+          0       0       0 corpus-empty.txt
+
+    $ sha256sum corpus-*
+    ff90dc6f56b02faa2f67a9b937ba935ea62f246e0165d7212b2d0e500668f40b  corpus-3rd-qu.txt
+    bc899c11c714f764f90aaddfe08e1b50d67812da8e54bc12c814a4544ae0c8ff  corpus-don-quixote.txt
+    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  corpus-empty.txt
+
+Largely by removing the `clap` and `regex` packages `commitmsgfmt` has become
+considerably leaner across the board, and without incurring undue future
+maintenance cost:
+
+    VERSION   | PACKAGES | BINARY SIZE | `.text` SECTION | MEAN BUILD TIME
+              |          | stripped    |                 | debug    release
+    ----------+----------+-------------+-----------------+-----------------
+    1.5.0     | 42       | 2103792 b   | 1126.4 KiB      | 3.073 s  4.525 s
+    1.6.0     | 29       |  494032 b   |  334.3 KiB      | 0.910 s  1.143 s
+    1.6.0 (%) | 70%      | 23%         | 30%             | 30%      25%
+
+
+    VERSION   | MEAN EXECUTION TIME         | TOTAL ALLOCATIONS
+              | empty   3rd qu  don-quixote | empty        3rd          don-quixote
+    ----------+-----------------------------+---------------------------------------
+    1.5.0     | 7.1 ms  7.6 ms  67.4 ms     | 4,944,024 B  5,531,448 B  29,304,608 B
+    1.6.0     | 4.9 ms  4.6 ms  52.6 ms     |    15,736 B     36,760 B  22,015,736 B
+    1.6.0 (%) | 69%     61%     78%         | 0%           1%           75%
+
+
+The `clap` package contributed the most to build time. The `regex` package
+contributed the most to execution time and dynamic allocations. Neither
+discovery surprised.
+
+[quixote]: https://www.gutenberg.org/cache/epub/996/pg996.txt
+
 ## 1.5.0 - 2022-07-30
 
 - Fix an edge case where footnote references followed by punctuation would
