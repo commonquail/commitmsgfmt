@@ -37,7 +37,8 @@ impl CommitMsgFmt {
     fn reflow_into(&self, buf: &mut String, msg: &[Token]) {
         for tok in msg {
             match *tok {
-                BlockQuote(s) | Comment(s) | Literal(s) | Scissored(s) | Trailer(s) => {
+                BlockQuote(s) | Comment(s) | FencedCodeBlock(s) | Literal(s) | Scissored(s)
+                | Trailer(s) => {
                     buf.push_str(s);
                 }
                 ListItem(ref indent, ref li, ref s) => {
@@ -209,6 +210,84 @@ foo
 \tliteral indented with tab
 \t  continuation
 \t\tcontinuation
+";
+
+        assert_eq!(filter(72, &input), expected);
+    }
+
+    #[test]
+    fn preserves_fenced_code_block() {
+        let input = "
+foo
+
+```
+backtick
+fenced
+code
+block
+```
+
+~~~
+tilde
+fenced
+code
+block
+~~~
+";
+
+        let expected = "
+foo
+
+```
+backtick
+fenced
+code
+block
+```
+
+~~~
+tilde
+fenced
+code
+block
+~~~
+";
+
+        assert_eq!(filter(72, &input), expected);
+    }
+
+    #[test]
+    fn preserves_fenced_code_block_interrupting_paragraph() {
+        let input = "
+foo
+
+a
+```
+backtick
+```
+b
+
+c
+~~~
+tilde
+~~~
+d
+";
+
+        let expected = "
+foo
+
+a
+```
+backtick
+```
+b
+
+c
+~~~
+tilde
+~~~
+d
 ";
 
         assert_eq!(filter(72, &input), expected);
