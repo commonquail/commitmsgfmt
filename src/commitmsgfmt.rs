@@ -226,13 +226,6 @@ fenced
 code
 block
 ```
-
-~~~
-tilde
-fenced
-code
-block
-~~~
 ";
 
         let expected = "
@@ -244,13 +237,6 @@ fenced
 code
 block
 ```
-
-~~~
-tilde
-fenced
-code
-block
-~~~
 ";
 
         assert_eq!(filter(72, &input), expected);
@@ -266,12 +252,6 @@ a
 backtick
 ```
 b
-
-c
-~~~
-tilde
-~~~
-d
 ";
 
         let expected = "
@@ -282,12 +262,30 @@ a
 backtick
 ```
 b
+";
 
-c
+        assert_eq!(filter(72, &input), expected);
+    }
+
+    #[test]
+    fn ignores_fenced_code_block_with_tilde() {
+        let input = "
+foo
+
 ~~~
 tilde
+fenced
+code
+block
+not
+supported
 ~~~
-d
+";
+
+        let expected = "
+foo
+
+~~~ tilde fenced code block not supported ~~~
 ";
 
         assert_eq!(filter(72, &input), expected);

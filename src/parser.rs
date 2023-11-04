@@ -352,7 +352,6 @@ fn line_as_code_fence(line: &'_ str) -> Option<CodeFence> {
         IndentSp2,
         IndentSp3,
         Backtick,
-        Tilde,
     }
 
     let mut fence_state = FenceState::New;
@@ -360,6 +359,9 @@ fn line_as_code_fence(line: &'_ str) -> Option<CodeFence> {
     let mut fence_length = 0;
     let mut tally = || fence_length += 1;
     // https://spec.commonmark.org/0.30/#fenced-code-blocks
+    // Backtick fenced code blocks appear relatively safe to support. Tilde fenced code blocks, on
+    // the other hand, are unsafe: tildes are often used for emphasizing compilation error output
+    // or underlining headers.
     for (ix, c) in line.char_indices() {
         match fence_state {
             FenceState::New
@@ -379,20 +381,12 @@ fn line_as_code_fence(line: &'_ str) -> Option<CodeFence> {
                         tally();
                         FenceState::Backtick
                     }
-                    '~' => {
-                        tally();
-                        FenceState::Tilde
-                    }
                     _ => break,
                 };
             }
             // "Tildes and backticks cannot be mixed."
             FenceState::Backtick => match c {
                 '`' => tally(),
-                _ => break,
-            },
-            FenceState::Tilde => match c {
-                '~' => tally(),
                 _ => break,
             },
         }
@@ -818,6 +812,28 @@ backtick
     }
 
     #[test]
+    fn parses_codefence_tilde_not_fenced_code_block() {
+        let input = "
+subject
+
+~~~
+tilde
+~~~
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            Paragraph("~~~ tilde ~~~".into()),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
     fn parses_codefence_backtick_indented_aligned_4sp_not_fenced_code_block() {
         let input = "
 subject
@@ -1172,416 +1188,6 @@ subject
             ListItem(ListIndent(""), ListType("- "), "c".into()),
             FencedCodeBlock("  ```"),
             FencedCodeBlock("  backtick"),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn parses_codefence_tilde_verbatim() {
-        let input = "
-subject
-
-~~~
-tilde
-~~~
-
- ~~~
- tilde
- ~~~
-
-  ~~~
-  tilde
-  ~~~
-
-   ~~~
-   tilde
-   ~~~
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("tilde"),
-            FencedCodeBlock("~~~"),
-            VerticalSpace,
-            FencedCodeBlock(" ~~~"),
-            FencedCodeBlock(" tilde"),
-            FencedCodeBlock(" ~~~"),
-            VerticalSpace,
-            FencedCodeBlock("  ~~~"),
-            FencedCodeBlock("  tilde"),
-            FencedCodeBlock("  ~~~"),
-            VerticalSpace,
-            FencedCodeBlock("   ~~~"),
-            FencedCodeBlock("   tilde"),
-            FencedCodeBlock("   ~~~"),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn parses_codefence_tilde_indented_aligned_4sp_not_fenced_code_block() {
-        let input = "
-subject
-
-    ~~~
-    tilde
-    ~~~
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            Literal("    ~~~"),
-            Literal("    tilde"),
-            Literal("    ~~~"),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn parses_codefence_tilde_indented_unaligned() {
-        let input = "
-subject
-
- ~~~
-tilde 1 0
-~~~
-  ~~~
-tilde 2 0
-~~~
-   ~~~
-tilde 3 0
-~~~
-~~~
-tilde 0 1
- ~~~
-~~~
-tilde 0 2
-  ~~~
-~~~
-tilde 0 3
-   ~~~
-  ~~~
-tilde 2 1
- ~~~
-   ~~~
-tilde 3 2
-  ~~~
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            FencedCodeBlock(" ~~~"),
-            FencedCodeBlock("tilde 1 0"),
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("  ~~~"),
-            FencedCodeBlock("tilde 2 0"),
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("   ~~~"),
-            FencedCodeBlock("tilde 3 0"),
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("tilde 0 1"),
-            FencedCodeBlock(" ~~~"),
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("tilde 0 2"),
-            FencedCodeBlock("  ~~~"),
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("tilde 0 3"),
-            FencedCodeBlock("   ~~~"),
-            FencedCodeBlock("  ~~~"),
-            FencedCodeBlock("tilde 2 1"),
-            FencedCodeBlock(" ~~~"),
-            FencedCodeBlock("   ~~~"),
-            FencedCodeBlock("tilde 3 2"),
-            FencedCodeBlock("  ~~~"),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn parses_codefence_tilde_fence_extra_long() {
-        let input = "
-subject
-
-~~~
-tilde 3 4
-~~~~
-~~~~
-tilde 4 5
-~~~~~
-~~~~~
-tilde 5 6
-~~~~~~
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("tilde 3 4"),
-            FencedCodeBlock("~~~~"),
-            FencedCodeBlock("~~~~"),
-            FencedCodeBlock("tilde 4 5"),
-            FencedCodeBlock("~~~~~"),
-            FencedCodeBlock("~~~~~"),
-            FencedCodeBlock("tilde 5 6"),
-            FencedCodeBlock("~~~~~~"),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn parses_codefence_tilde_fence_too_short_not_fenced_code_block() {
-        let input = "
-subject
-
-~~
-tilde
-~~
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            Paragraph("~~ tilde ~~".into()),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn parses_codefence_tilde_with_infostring() {
-        let input = "
-subject
-
-~~~info
-tilde info no leading ws
-~~~
-
-~~~ info
-tilde info leading sp
-~~~
-
-~~~	info
-tilde info leading tab
-~~~
-
-~~~info`
-tilde info accept illegal info with tilde
-~~~
-
-~~~info~
-tilde info accept legal info with tilde
-~~~
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            FencedCodeBlock("~~~info"),
-            FencedCodeBlock("tilde info no leading ws"),
-            FencedCodeBlock("~~~"),
-            VerticalSpace,
-            FencedCodeBlock("~~~ info"),
-            FencedCodeBlock("tilde info leading sp"),
-            FencedCodeBlock("~~~"),
-            VerticalSpace,
-            FencedCodeBlock("~~~\tinfo"),
-            FencedCodeBlock("tilde info leading tab"),
-            FencedCodeBlock("~~~"),
-            VerticalSpace,
-            FencedCodeBlock("~~~info`"),
-            FencedCodeBlock("tilde info accept illegal info with tilde"),
-            FencedCodeBlock("~~~"),
-            VerticalSpace,
-            FencedCodeBlock("~~~info~"),
-            FencedCodeBlock("tilde info accept legal info with tilde"),
-            FencedCodeBlock("~~~"),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn parses_codefence_tilde_can_interrupt_paragraph() {
-        let input = "
-subject
-
-a
-~~~
-tilde
-~~~
-b
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            Paragraph("a".into()),
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("tilde"),
-            FencedCodeBlock("~~~"),
-            Paragraph("b".into()),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn parses_codefence_tilde_fence_unmatched_length() {
-        let input = "
-subject
-
-~~~~
-tilde
-~~~
-
-tilde
-
-~~
-tilde
-~~~~
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            FencedCodeBlock("~~~~"),
-            FencedCodeBlock("tilde"),
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock(""),
-            FencedCodeBlock("tilde"),
-            FencedCodeBlock(""),
-            FencedCodeBlock("~~"),
-            FencedCodeBlock("tilde"),
-            FencedCodeBlock("~~~~"),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn parses_codefence_tilde_unterminated() {
-        let input = "
-subject
-
-~~~
-tilde
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            FencedCodeBlock("~~~"),
-            FencedCodeBlock("tilde"),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn bug_parses_codefence_tilde_enclosed_in_block_quote() {
-        let input = "
-subject
-
-> a
-> ~~~
-> tilde
-> ~~~
-> b
-
-> c
-> ~~~
-> tilde
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            BlockQuote("> a"),
-            BlockQuote("> ~~~"),
-            BlockQuote("> tilde"),
-            BlockQuote("> ~~~"),
-            BlockQuote("> b"),
-            VerticalSpace,
-            BlockQuote("> c"),
-            BlockQuote("> ~~~"),
-            BlockQuote("> tilde"),
-        ];
-
-        let actual = parse(&input);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn bug_parses_codefence_tilde_enclosed_in_list_item() {
-        let input = "
-subject
-
-- a
-  ~~~
-  tilde
-  ~~~
-  b
-
-- c
-  ~~~
-  tilde
-";
-
-        let expected = vec![
-            VerticalSpace,
-            Subject("subject"),
-            VerticalSpace,
-            ListItem(ListIndent(""), ListType("- "), "a".into()),
-            FencedCodeBlock("  ~~~"),
-            FencedCodeBlock("  tilde"),
-            FencedCodeBlock("  ~~~"),
-            Paragraph("b".into()),
-            VerticalSpace,
-            ListItem(ListIndent(""), ListType("- "), "c".into()),
-            FencedCodeBlock("  ~~~"),
-            FencedCodeBlock("  tilde"),
         ];
 
         let actual = parse(&input);
