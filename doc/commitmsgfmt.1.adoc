@@ -58,6 +58,10 @@ The exact formatting behavior is implementation defined. This section attempts
 to describe the rules but deviation may be either an inexpediency in the
 implementation or an error in the description.
 
+{self} does not attempt to recognize AsciiDoc, CommonMark, Markdown,
+reStructuredText, or any other markup language. Formally, {self} recognizes
+only plain text, and similarity to any markup language is incidental.
+
 NOTE: Depending on your expectations of merge commit messages you may find
 {self} unsuitable for use in such messages. If you write them precisely like
 you write non-merge commit messages, go ahead and format them with {self}.
@@ -95,9 +99,9 @@ those cases and avoid them by preventing wrapping: it will
   references both preserve their context and don't degenerate into _list
   items_.
 
-_Block quotes_ are exempt from the requirement of surrounding blank lines and
-will never be considered to belong to a paragraph. A block quote embedded
-inside a paragraph has the same effect on that paragraph as an empty line has.
+A paragraph may be interrupted by _block quotes_ and _fenced code blocks_,
+meaning these are exempt from the requirement of surrounding blank lines and
+will never be considered to belong to a paragraph.
 
 === Subject line
 
@@ -196,8 +200,64 @@ literals.
 
 === Literal
 
-A line starting with one tab or four spaces is considered a _literal_. Literals
-are printed verbatim, making them suitable for listings and tables.
+A line starting with one tab or four spaces is considered a _literal_:
+
+----
+paragraph
+
+    literal
+
+paragraph
+----
+
+Literals are printed verbatim, making them suitable for listings and tables.
+
+See also _fenced code block_.
+
+=== Code fence
+
+Outside of a _fenced code block_ a line starting with up to 3 spaces followed
+by at least 3 consecutive backticks (*`*) is considered an _opening code
+fence_:
+
+----
+```opening
+----
+
+Within a fenced code block a line starting with up to 3 spaces followed by at
+least as many consecutive backticks as the preceding opening code fence is
+considered a _closing code fence_; any sequence of fewer backticks is ignored:
+
+----
+ ````opening
+```
+  `````
+----
+
+NOTE: For sake of compatibility, tilde (*~*) cannot be used in place of
+backtick.
+
+=== Fenced code block
+
+A _fenced code block_ begins with an _opening code fence_ and ends with the
+first following _closing code fence_:
+
+----
+Compare the previous version of origin/topic with the current version:
+```sh
+$ git range-diff origin/main origin/topic@{1} origin/topic
+```
+----
+
+The fenced code block includes both code fences and all contents in-between the
+code fences.
+
+Fenced code blocks are printed verbatim, making them suitable for listings.
+Fenced code blocks are more flexible in their use than _literals_ are but
+otherwise solve the same problem.
+
+A fenced code block may interrupt a _paragraph_; it needs no preceding or
+following blank line.
 
 === Block quote
 
@@ -226,11 +286,9 @@ vip:!fmt -w72 -p'>'
 ----
 ====
 
-Unlike other constructs a block quote may be embedded inside a _paragraph_ with
-no preceding or following blank line; the block quote will not be folded into
-the paragraph and the paragraph will otherwise observe standard behavior. This
-enables a common pattern of immediately preceding the block quote with an
-author attribution, illustrated above.
+A block quote may interrupt a _paragraph_; it needs no preceding or following
+blank line. This enables a common pattern of immediately preceding the block
+quote with an author attribution, illustrated above.
 
 === Comment
 
@@ -309,6 +367,11 @@ foo baar -- baz qux wupwupwup [1][2] [wup]
 hex:
 > 0 1 2 3 4 5 6 7 8 9 a b c d e f
 
+chicken:
+```chicken
+chicken chicken
+```
+
 - foo
 1. foo bar
 baz
@@ -331,6 +394,11 @@ wupwupwup [1][2] [wup]
 
 hex:
 > 0 1 2 3 4 5 6 7 8 9 a b c d e f
+
+chicken:
+```chicken
+chicken chicken
+```
 
 - foo
 1. foo bar
