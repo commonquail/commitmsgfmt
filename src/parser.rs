@@ -337,6 +337,60 @@ mod tests {
     }
 
     #[test]
+    fn llvmcov_impl_debug() {
+        let actual = ListItem(ListIndent("a"), ListType("b"), "c".into());
+        assert_eq!(
+            r#"ListItem(ListIndent("a"), ListType("b"), "c")"#,
+            format!("{:?}", actual)
+        );
+    }
+
+    #[test]
+    fn llvmcov_line_as_list_item() {
+        let matrix = [
+            ("1.  ", None),
+            ("11. a", Some(("", "11. ", "a"))),
+            ("1. a", Some(("", "1. ", "a"))),
+            (" 1. a", Some((" ", "1. ", "a"))),
+            ("  1. a", Some(("  ", "1. ", "a"))),
+            ("   1. a", None),
+            ("(1) a", Some(("", "(1) ", "a"))),
+            ("(1)a", None),
+            ("(1a", None),
+            ("(1", None),
+            ("(a) b", None),
+            ("1) d", Some(("", "1) ", "d"))),
+            ("1: a", Some(("", "1: ", "a"))),
+            ("1] a", Some(("", "1] ", "a"))),
+            ("* b", Some(("", "* ", "b"))),
+            ("- c", Some(("", "- ", "c"))),
+        ];
+        for (input, expected) in matrix.iter() {
+            let expected = expected.map(|e| ListItem(ListIndent(e.0), ListType(e.1), e.2.into()));
+            let actual = line_as_list_item(&input);
+            assert_eq!(expected, actual, "'{}'=>{:?}", input, expected);
+        }
+    }
+
+    #[test]
+    fn llvmcov_is_line_footnote() {
+        let matrix = [
+            ("[", false),
+            ("]", false),
+            ("[]", false),
+            ("[a", false),
+            ("[a]", false),
+            ("[a] ", false),
+            ("[a] b", true),
+            ("[a]: b", true),
+        ];
+        for (input, expected) in matrix.iter() {
+            let actual = is_line_footnote(&input);
+            assert_eq!(expected, &actual, "'{}'=>{}", input, expected);
+        }
+    }
+
+    #[test]
     fn parses_empty_str() {
         assert!(parse("").is_empty());
     }
