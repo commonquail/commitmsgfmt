@@ -270,4 +270,16 @@ mod tests {
         let res = iter_collect(&text);
         assert_eq!(res, expect);
     }
+
+    #[test]
+    fn llvmcov_is_non_breaking_word() {
+        let matrix: Vec<(&str, Vec<Cow<'_, str>>)> = vec![
+            ("a [", vec!["a".into(), "[".into()]),
+            ("a [b", vec!["a".into(), "[b".into()]),
+        ];
+        for (input, expected) in matrix.iter() {
+            let actual = iter_collect(&input);
+            assert_eq!(expected, &actual);
+        }
+    }
 }

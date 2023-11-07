@@ -565,6 +565,22 @@ content
     }
 
     #[test]
+    fn preserves_comment() {
+        let input = "
+foo
+
+# comment
+";
+
+        let expected = "
+foo
+
+# comment
+";
+        assert_eq!(filter(2, &input), expected);
+    }
+
+    #[test]
     fn preserves_scissored_content_with_custom_comment_char() {
         let input = "
 foo
