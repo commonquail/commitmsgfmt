@@ -126,7 +126,7 @@ pub struct Config {
 }
 
 impl Config {
-    fn new<'a>(args: Vec<ConfigArgument<'a>>) -> CliResult<'a, Config> {
+    fn new(args: Vec<ConfigArgument<'_>>) -> CliResult<'_, Config> {
         let mut width: Option<&str> = None;
         for arg in args {
             match arg {
@@ -135,7 +135,7 @@ impl Config {
         }
 
         let width = width
-            .map(|w| i32::from_str_radix(w, 10).map_err(|_| CliError::ArgWidthNaN(w.into())))
+            .map(|w| w.parse().map_err(|_| CliError::ArgWidthNaN(w.into())))
             .transpose()?
             .unwrap_or(72);
 
@@ -194,7 +194,7 @@ fn main() {
 
 fn try_config_from_command_line(args: &'_ [String]) -> CliResult<'_, Config> {
     let (binary_path, args) = args.split_first().expect("binary has name");
-    parse_args(&args)
+    parse_args(args)
         .into_iter()
         .try_fold(vec![], |mut acc, arg| match arg {
             CliArgument::HelpLong => Err(CliError::EarlyExit(
