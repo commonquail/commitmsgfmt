@@ -135,7 +135,7 @@ impl Config {
         }
 
         let width = width
-            .map(|w| i32::from_str_radix(w, 10).map_err(|_| CliError::ArgWidthNaN(w.into())))
+            .map(|w| w.parse().map_err(|_| CliError::ArgWidthNaN(w.into())))
             .transpose()?
             .unwrap_or(72);
 
