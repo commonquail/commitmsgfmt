@@ -126,7 +126,7 @@ pub struct Config {
 }
 
 impl Config {
-    fn new<'a>(args: Vec<ConfigArgument<'a>>) -> CliResult<'a, Config> {
+    fn new(args: Vec<ConfigArgument<'_>>) -> CliResult<'_, Config> {
         let mut width: Option<&str> = None;
         for arg in args {
             match arg {
