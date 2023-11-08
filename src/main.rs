@@ -194,7 +194,7 @@ fn main() {
 
 fn try_config_from_command_line(args: &'_ [String]) -> CliResult<'_, Config> {
     let (binary_path, args) = args.split_first().expect("binary has name");
-    parse_args(&args)
+    parse_args(args)
         .into_iter()
         .try_fold(vec![], |mut acc, arg| match arg {
             CliArgument::HelpLong => Err(CliError::EarlyExit(

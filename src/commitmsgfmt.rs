@@ -37,8 +37,7 @@ impl CommitMsgFmt {
     fn reflow_into(&self, buf: &mut String, msg: &[Token]) {
         for tok in msg {
             match *tok {
-                BlockQuote(ref s) | Comment(ref s) | Literal(ref s) | Scissored(ref s)
-                | Trailer(ref s) => {
+                BlockQuote(s) | Comment(s) | Literal(s) | Scissored(s) | Trailer(s) => {
                     buf.push_str(s);
                 }
                 ListItem(ref indent, ref li, ref s) => {
@@ -55,13 +54,13 @@ impl CommitMsgFmt {
                 Paragraph(ref p) => {
                     self.wrap_paragraph_into(buf, p, None);
                 }
-                Footnote(ref key, ref rest) => {
+                Footnote(key, ref rest) => {
                     buf.push_str(key);
                     buf.push(' ');
                     let continuation = " ".repeat(key.graphemes(true).count() + 1);
                     self.wrap_paragraph_into(buf, rest.trim(), Some(&continuation));
                 }
-                Subject(ref s) => {
+                Subject(s) => {
                     buf.push_str(s);
                 }
                 VerticalSpace => {}
