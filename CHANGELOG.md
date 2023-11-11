@@ -9,6 +9,14 @@ understanding of patterns often seen in commit messages.
   in their entirety, and allow them to follow a preceding paragraph without the
   empty line that is otherwise usually required.
 
+- #7: Recognize fenced code blocks with backtick code fences (` ``` `) and
+  preserve them in their entirety. Do not recognize tilde code fences (`~~~`),
+  which are virtually never used in practice and which would interfere with
+  many other uses. Per CommonMark 0.3.0 a code fence must be at least three
+  characters long and may optionally be indented up to three spaces, and the
+  closing code fence must be at least as long as the opening code fence
+  ignoring whitespace.
+
 - If `--width` is specified multiple times, ignore all but the last occurrence.
 
 ## 1.5.0 - 2022-07-30

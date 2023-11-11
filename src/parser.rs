@@ -12,6 +12,7 @@ type ReflowableStrBuf<'input> = Cow<'input, str>;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token<'input> {
     Comment(&'input str),
+    FencedCodeBlock(&'input str),
     Footnote(&'input str, ReflowableStrBuf<'input>),
     ListItem(
         ListIndent<'input>,
@@ -27,6 +28,24 @@ pub enum Token<'input> {
     VerticalSpace,
 }
 
+// Token::FencedCodeBlock is the first block construct that can interrupt another block construct;
+// that cannot be identified purely from either the current line or the previous token; and that
+// may not be wrapped. That means there are valid situations we cannot represent without more
+// sophisticated state management. We also don't want to needlessly extend a String. We'll just
+// track the opening code fence, match it against closing fences, and treat the entire block as a
+// glorified Token::Literal sequence. We accept the loss of composability.
+struct CodeFence<'input>(&'input str);
+
+impl CodeFence<'_> {
+    fn is_closed_by(&self, line: &str) -> bool {
+        // "until a closing code fence of the same type as the code block began with (backticks or
+        // tildes), and with at least as many backticks or tildes as the opening code fence"
+        line_as_code_fence(line)
+            .map(|fence| fence.0.starts_with(self.0))
+            .unwrap_or(false)
+    }
+}
+
 pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut toks = Vec::new();
 
@@ -34,9 +53,18 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
     let mut has_scissors = false;
     let lines = input.lines();
     let mut px = false;
+    let mut in_code_fence: Option<CodeFence> = None;
     for line in lines {
         if has_scissors {
             toks.push(Token::Scissored(line));
+        } else if let Some(ref fence) = in_code_fence {
+            toks.push(Token::FencedCodeBlock(line));
+            if fence.is_closed_by(line) {
+                in_code_fence = None;
+            }
+        } else if let Some(fence) = line_as_code_fence(line) {
+            toks.push(Token::FencedCodeBlock(line));
+            in_code_fence = Some(fence);
         } else if line.starts_with(comment_char) {
             let t = if &line[1..] == " ------------------------ >8 ------------------------" {
                 has_scissors = true;
@@ -315,6 +343,64 @@ fn line_as_list_item(line: &str) -> Option<Token> {
         let li_content = line[ix_li_content_start..].into();
         Token::ListItem(ListIndent(li_indent), ListType(li_type), li_content)
     })
+}
+
+fn line_as_code_fence(line: &'_ str) -> Option<CodeFence> {
+    enum FenceState {
+        New,
+        IndentSp1,
+        IndentSp2,
+        IndentSp3,
+        Backtick,
+    }
+
+    let mut fence_state = FenceState::New;
+    let mut ix_fence_start = 0;
+    let mut fence_length = 0;
+    let mut tally = || fence_length += 1;
+    // https://spec.commonmark.org/0.30/#fenced-code-blocks
+    // Backtick fenced code blocks appear relatively safe to support. Tilde fenced code blocks, on
+    // the other hand, are unsafe: tildes are often used for emphasizing compilation error output
+    // or underlining headers.
+    for (ix, c) in line.char_indices() {
+        match fence_state {
+            FenceState::New
+            | FenceState::IndentSp1
+            | FenceState::IndentSp2
+            | FenceState::IndentSp3 => {
+                ix_fence_start = ix;
+                // "preceded by up to three spaces of indentation"
+                fence_state = match c {
+                    ' ' => match fence_state {
+                        FenceState::New => FenceState::IndentSp1,
+                        FenceState::IndentSp1 => FenceState::IndentSp2,
+                        FenceState::IndentSp2 => FenceState::IndentSp3,
+                        _ => break,
+                    },
+                    '`' => {
+                        tally();
+                        FenceState::Backtick
+                    }
+                    _ => break,
+                };
+            }
+            // "Tildes and backticks cannot be mixed."
+            FenceState::Backtick => match c {
+                '`' => tally(),
+                _ => break,
+            },
+        }
+    }
+
+    // "at least three consecutive backtick characters (`) or tildes (~)"
+    if fence_length >= 3 {
+        let ix_end = ix_fence_start + fence_length;
+        debug_assert!(ix_end <= line.len());
+        let fence = &line[ix_fence_start..ix_end];
+        Some(CodeFence(fence))
+    } else {
+        None
+    }
 }
 
 fn line_as_line_block_quote(line: &str) -> Option<Token> {
@@ -675,6 +761,438 @@ some other paragraph
                 Paragraph("some other paragraph".into()),
             ],
         );
+    }
+
+    #[test]
+    fn parses_codefence_backtick_verbatim() {
+        let input = "
+subject
+
+```
+backtick
+```
+
+ ```
+ backtick
+ ```
+
+  ```
+  backtick
+  ```
+
+   ```
+   backtick
+   ```
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            FencedCodeBlock("```"),
+            FencedCodeBlock("backtick"),
+            FencedCodeBlock("```"),
+            VerticalSpace,
+            FencedCodeBlock(" ```"),
+            FencedCodeBlock(" backtick"),
+            FencedCodeBlock(" ```"),
+            VerticalSpace,
+            FencedCodeBlock("  ```"),
+            FencedCodeBlock("  backtick"),
+            FencedCodeBlock("  ```"),
+            VerticalSpace,
+            FencedCodeBlock("   ```"),
+            FencedCodeBlock("   backtick"),
+            FencedCodeBlock("   ```"),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parses_codefence_tilde_not_fenced_code_block() {
+        let input = "
+subject
+
+~~~
+tilde
+~~~
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            Paragraph("~~~ tilde ~~~".into()),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parses_codefence_backtick_indented_aligned_4sp_not_fenced_code_block() {
+        let input = "
+subject
+
+    ```
+    backtick
+    ```
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            Literal("    ```"),
+            Literal("    backtick"),
+            Literal("    ```"),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parses_codefence_backtick_indented_unaligned() {
+        let input = "
+subject
+
+ ```
+backtick 1 0
+```
+  ```
+backtick 2 0
+```
+   ```
+backtick 3 0
+```
+```
+backtick 0 1
+ ```
+```
+backtick 0 2
+  ```
+```
+backtick 0 3
+   ```
+  ```
+backtick 2 1
+ ```
+   ```
+backtick 3 2
+  ```
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            FencedCodeBlock(" ```"),
+            FencedCodeBlock("backtick 1 0"),
+            FencedCodeBlock("```"),
+            FencedCodeBlock("  ```"),
+            FencedCodeBlock("backtick 2 0"),
+            FencedCodeBlock("```"),
+            FencedCodeBlock("   ```"),
+            FencedCodeBlock("backtick 3 0"),
+            FencedCodeBlock("```"),
+            FencedCodeBlock("```"),
+            FencedCodeBlock("backtick 0 1"),
+            FencedCodeBlock(" ```"),
+            FencedCodeBlock("```"),
+            FencedCodeBlock("backtick 0 2"),
+            FencedCodeBlock("  ```"),
+            FencedCodeBlock("```"),
+            FencedCodeBlock("backtick 0 3"),
+            FencedCodeBlock("   ```"),
+            FencedCodeBlock("  ```"),
+            FencedCodeBlock("backtick 2 1"),
+            FencedCodeBlock(" ```"),
+            FencedCodeBlock("   ```"),
+            FencedCodeBlock("backtick 3 2"),
+            FencedCodeBlock("  ```"),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parses_codefence_backtick_fence_extra_long() {
+        let input = "
+subject
+
+```
+backtick 3 4
+````
+````
+backtick 4 5
+`````
+`````
+backtick 5 6
+``````
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            FencedCodeBlock("```"),
+            FencedCodeBlock("backtick 3 4"),
+            FencedCodeBlock("````"),
+            FencedCodeBlock("````"),
+            FencedCodeBlock("backtick 4 5"),
+            FencedCodeBlock("`````"),
+            FencedCodeBlock("`````"),
+            FencedCodeBlock("backtick 5 6"),
+            FencedCodeBlock("``````"),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parses_codefence_backtick_fence_too_short_not_fenced_code_block() {
+        let input = "
+subject
+
+``
+backtick
+``
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            Paragraph("`` backtick ``".into()),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parses_codefence_backtick_with_infostring() {
+        let input = "
+subject
+
+```info
+backtick info no leading ws
+```
+
+``` info
+backtick info leading sp
+```
+
+```	info
+backtick info leading tab
+```
+
+```info`
+backtick info accept illegal info with backtick
+```
+
+```info~
+backtick info accept legal info with tilde
+```
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            FencedCodeBlock("```info"),
+            FencedCodeBlock("backtick info no leading ws"),
+            FencedCodeBlock("```"),
+            VerticalSpace,
+            FencedCodeBlock("``` info"),
+            FencedCodeBlock("backtick info leading sp"),
+            FencedCodeBlock("```"),
+            VerticalSpace,
+            FencedCodeBlock("```\tinfo"),
+            FencedCodeBlock("backtick info leading tab"),
+            FencedCodeBlock("```"),
+            VerticalSpace,
+            FencedCodeBlock("```info`"),
+            FencedCodeBlock("backtick info accept illegal info with backtick"),
+            FencedCodeBlock("```"),
+            VerticalSpace,
+            FencedCodeBlock("```info~"),
+            FencedCodeBlock("backtick info accept legal info with tilde"),
+            FencedCodeBlock("```"),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parses_codefence_backtick_can_interrupt_paragraph() {
+        let input = "
+subject
+
+a
+```
+backtick
+```
+b
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            Paragraph("a".into()),
+            FencedCodeBlock("```"),
+            FencedCodeBlock("backtick"),
+            FencedCodeBlock("```"),
+            Paragraph("b".into()),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parses_codefence_backtick_fence_unmatched_length() {
+        let input = "
+subject
+
+````
+backtick
+```
+
+backtick
+
+``
+backtick
+````
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            FencedCodeBlock("````"),
+            FencedCodeBlock("backtick"),
+            FencedCodeBlock("```"),
+            FencedCodeBlock(""),
+            FencedCodeBlock("backtick"),
+            FencedCodeBlock(""),
+            FencedCodeBlock("``"),
+            FencedCodeBlock("backtick"),
+            FencedCodeBlock("````"),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parses_codefence_backtick_unterminated() {
+        let input = "
+subject
+
+```
+backtick
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            FencedCodeBlock("```"),
+            FencedCodeBlock("backtick"),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn bug_parses_codefence_backtick_enclosed_in_block_quote() {
+        let input = "
+subject
+
+> a
+> ```
+> backtick
+> ```
+> b
+
+> c
+> ```
+> backtick
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            BlockQuote("> a"),
+            BlockQuote("> ```"),
+            BlockQuote("> backtick"),
+            BlockQuote("> ```"),
+            BlockQuote("> b"),
+            VerticalSpace,
+            BlockQuote("> c"),
+            BlockQuote("> ```"),
+            BlockQuote("> backtick"),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn bug_parses_codefence_backtick_enclosed_in_list_item() {
+        let input = "
+subject
+
+- a
+  ```
+  backtick
+  ```
+  b
+
+- c
+  ```
+  backtick
+";
+
+        let expected = vec![
+            VerticalSpace,
+            Subject("subject"),
+            VerticalSpace,
+            ListItem(ListIndent(""), ListType("- "), "a".into()),
+            FencedCodeBlock("  ```"),
+            FencedCodeBlock("  backtick"),
+            FencedCodeBlock("  ```"),
+            Paragraph("b".into()),
+            VerticalSpace,
+            ListItem(ListIndent(""), ListType("- "), "c".into()),
+            FencedCodeBlock("  ```"),
+            FencedCodeBlock("  backtick"),
+        ];
+
+        let actual = parse(&input);
+
+        assert_eq!(expected, actual);
     }
 
     #[test]
