@@ -2,6 +2,8 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 use std::io;
+use std::process::ExitCode;
+use std::process::Termination;
 
 mod commitmsgfmt;
 mod parser;
@@ -107,6 +109,26 @@ impl<'a> Error for CliError<'a> {
     }
 }
 
+impl Termination for CliError<'_> {
+    fn report(self) -> ExitCode {
+        match self {
+            CliError::EarlyExit(s) => {
+                println!("{}", s);
+                ExitCode::SUCCESS
+            }
+            CliError::Io(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
+                let ret = 128 + 13;
+                debug_assert!(ret == 141);
+                ExitCode::from(ret)
+            }
+            _ => {
+                eprintln!("fatal: {}", self);
+                ExitCode::FAILURE
+            }
+        }
+    }
+}
+
 enum CliArgument<'a> {
     HelpShort,
     HelpLong,
@@ -172,11 +194,11 @@ fn parse_git_config_commentchar(git_output: Result<Vec<u8>, io::Error>) -> char 
     }
 }
 
-fn main() {
+fn main() -> ExitCode {
     let command_line = std::env::args().collect::<Vec<String>>();
     let cfg = try_config_from_command_line(&command_line);
-    if let Err(ref e) = cfg {
-        exit_abnormally(e);
+    if let Err(e) = cfg {
+        return e.report();
     }
     let cfg = cfg.unwrap();
 
@@ -187,8 +209,9 @@ fn main() {
         .map(|text| commitmsgfmt.filter(&text))
         .and_then(to_stdout);
 
-    if let Err(ref e) = result {
-        exit_abnormally(e);
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => e.report(),
     }
 }
 
@@ -291,25 +314,6 @@ fn to_stdout<'a>(msg: String) -> CliResult<'a, ()> {
     stdout.write_all(msg.as_bytes())?;
 
     Ok(())
-}
-
-fn exit_abnormally(e: &CliError) {
-    let ret = match e {
-        CliError::EarlyExit(s) => {
-            println!("{}", s);
-            0
-        }
-        CliError::Io(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
-            let ret = 128 + 13;
-            debug_assert!(ret == 141);
-            ret
-        }
-        _ => {
-            eprintln!("fatal: {}", e);
-            1
-        }
-    };
-    ::std::process::exit(ret);
 }
 
 #[cfg(test)]
@@ -471,6 +475,26 @@ mod tests {
                 let actual = Expect::display_debug(actual_display.into(), actual_debug.into());
                 (actual, ex)
             })
+            .unzip();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn impl_clierror_termination() {
+        let errs = vec![
+            (CliError::ArgUnrecognized("foo".into()), ExitCode::FAILURE),
+            (CliError::ArgWidthNaN("nan".into()), ExitCode::FAILURE),
+            (CliError::ArgWidthOutOfBounds(0), ExitCode::FAILURE),
+            (CliError::EarlyExit("help".into()), ExitCode::SUCCESS),
+            (
+                CliError::from(io::Error::from(io::ErrorKind::BrokenPipe)),
+                ExitCode::from(141),
+            ),
+            (CliError::Other("other".into()), ExitCode::FAILURE),
+        ];
+        let (actual, expected): (Vec<_>, Vec<_>) = errs
+            .into_iter()
+            .map(|(input, ex)| (format!("{:?}", input.report()), format!("{:?}", ex)))
             .unzip();
         assert_eq!(expected, actual);
     }
