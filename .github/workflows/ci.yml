@@ -15,17 +15,16 @@ jobs:
     strategy:
       matrix:
         build:
-          # MSRV, stable, and next.
-          - pinned
+          - msrv
           - stable
           - nightly
           # Use nightly for these because that's what release does.
           - win-msvc
           - macos
         include:
-          - build: pinned
+          - build: msrv
             os: ubuntu-22.04
-            rust: 1.48.0
+            rust: 1.63.0
 
           - build: stable
             os: ubuntu-22.04
