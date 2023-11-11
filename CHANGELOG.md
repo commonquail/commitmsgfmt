@@ -3,7 +3,7 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
-## Unreleased
+## 1.6.0 - 2023-11-11
 
 - #6: Recognize lines that begin with `>` as _block quotes_ and preserve them
   in their entirety, and allow them to follow a preceding paragraph without the
