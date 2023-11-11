@@ -1,5 +1,5 @@
 = commitmsgfmt(1)
-:version: 1.6.0
+:version: 1.6.0-GIT
 :man source: commitmsgfmt {version}
 :man manual: User Commands
 :self: pass:q[*commitmsgfmt*]
