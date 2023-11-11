@@ -10,6 +10,41 @@ permissions:
 
 jobs:
 
+  archive-src:
+    name: archive-src
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            lzip
+
+      - name: Archive source code
+        shell: bash
+        run: |
+          v="${GITHUB_REF#refs/tags/}"
+          release_name="commitmsgfmt-$v"
+          asset_name="${release_name}.tar.lz"
+
+          git archive --prefix="${release_name}/" --format=tar "$v" |
+            lzip -6 >"$asset_name"
+
+          printf 'ASSET=%s\n' "$asset_name" >> $GITHUB_ENV
+          printf 'RELEASE_VERSION=%s\n' "$v" >> $GITHUB_ENV
+
+      - name: Upload source code archive
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          tag_name: ${{ env.RELEASE_VERSION }}
+          files: ${{ env.ASSET }}
+
   build-package:
     name: build-package
     runs-on: ${{ matrix.os }}
