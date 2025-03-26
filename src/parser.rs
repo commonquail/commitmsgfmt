@@ -46,7 +46,7 @@ impl CodeFence<'_> {
     }
 }
 
-pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
+pub fn parse<'a>(input: &'a str, comment_string: &str) -> Vec<Token<'a>> {
     let mut toks = Vec::new();
 
     let mut has_subject = false;
@@ -65,7 +65,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
         } else if let Some(fence) = line_as_code_fence(line) {
             toks.push(Token::FencedCodeBlock(line));
             in_code_fence = Some(fence);
-        } else if line.starts_with(comment_char) {
+        } else if line.starts_with(comment_string) {
             let t = if &line[1..] == " ------------------------ >8 ------------------------" {
                 has_scissors = true;
                 Token::Scissored(line)
@@ -419,7 +419,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn parse(s: &str) -> Vec<Token> {
-        super::parse(s, '#')
+        super::parse(s, "#")
     }
 
     #[test]
@@ -503,13 +503,13 @@ mod tests {
 
     #[test]
     fn parses_default_comment() {
-        assert_eq!(super::parse("# foo", '#'), [Comment("# foo")]);
+        assert_eq!(super::parse("# foo", "#"), [Comment("# foo")]);
     }
 
     #[test]
     fn parses_custom_comment() {
-        assert_eq!(super::parse("@ foo", '@'), [Comment("@ foo")]);
-        assert_eq!(super::parse("# foo", '@'), [Subject("# foo")]);
+        assert_eq!(super::parse("@ foo", "@"), [Comment("@ foo")]);
+        assert_eq!(super::parse("# foo", "@"), [Subject("# foo")]);
     }
 
     #[test]
@@ -1713,7 +1713,7 @@ do
     }
 
     #[test]
-    fn parses_scissored_content_with_custom_comment_char() {
+    fn parses_scissored_content_with_custom_comment_string() {
         assert_eq!(
             super::parse(
                 "
@@ -1727,7 +1727,7 @@ $ ------------------------ >8 ------------------------
 do
  not
   format
-", '$'
+", "$"
             ),
             [
                 VerticalSpace,

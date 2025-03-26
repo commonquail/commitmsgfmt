@@ -144,7 +144,7 @@ enum ConfigArgument<'a> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct Config {
     width: usize,
-    comment_char: char,
+    comment_string: String,
 }
 
 impl Config {
@@ -167,7 +167,7 @@ impl Config {
 
         let cfg = Config {
             width: width as usize,
-            comment_char: parse_git_config_commentchar(git_config_commentchar()),
+            comment_string: parse_git_config_commentchar(git_config_commentchar()),
         };
 
         Ok(cfg)
@@ -181,16 +181,16 @@ fn git_config_commentchar() -> Result<Vec<u8>, io::Error> {
         .map(|o| o.stdout)
 }
 
-fn parse_git_config_commentchar(git_output: Result<Vec<u8>, io::Error>) -> char {
+fn parse_git_config_commentchar(git_output: Result<Vec<u8>, io::Error>) -> String {
     let output: Vec<u8> = git_output.unwrap_or_else(|_| "#".into());
 
     // The setting is either unset, "auto", or precisely 1 ASCII character;
     // Git won't commit with an invalid configuration value. "auto" support
     // can be added on-demand, it requires at least 2 passes.
     if output.is_empty() || output == b"auto" {
-        '#'
+        "#".into()
     } else {
-        output[0].into()
+        (output[0] as char).into()
     }
 }
 
@@ -202,7 +202,7 @@ fn main() -> ExitCode {
     }
     let cfg = cfg.unwrap();
 
-    let commitmsgfmt = commitmsgfmt::CommitMsgFmt::new(cfg.width, cfg.comment_char);
+    let commitmsgfmt = commitmsgfmt::CommitMsgFmt::new(cfg.width, &cfg.comment_string);
 
     let result = read_all_bytes_from_stdin()
         .and_then(to_utf8)
@@ -503,49 +503,49 @@ mod tests {
             vec!["binary"],
             Ok(Config {
                 width: 72,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "--width"],
             Ok(Config {
                 width: 72,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "--width", "10"],
             Ok(Config {
                 width: 10,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "--width=21"],
             Ok(Config {
                 width: 21,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "-w"],
             Ok(Config {
                 width: 72,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "-w37"],
             Ok(Config {
                 width: 37,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "-w37", "-w42"],
             Ok(Config {
                 width: 42,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
@@ -620,18 +620,18 @@ mod tests {
     #[test]
     fn parses_git_config_commentchar() {
         let matrix = vec![
-            (Ok("".into()), '#'),
-            (Ok("auto".into()), '#'),
-            (Ok("#".into()), '#'),
-            (Ok("xy".into()), 'x'),
-            (Err(io::Error::from(io::ErrorKind::PermissionDenied)), '#'),
+            (Ok("".into()), "#"),
+            (Ok("auto".into()), "#"),
+            (Ok("#".into()), "#"),
+            (Ok("xy".into()), "x"),
+            (Err(io::Error::from(io::ErrorKind::PermissionDenied)), "#"),
         ];
         let (actual, expected): (Vec<_>, Vec<_>) = matrix
             .into_iter()
             .map(|(input, expected)| {
                 let x = format!("{:?}", &input);
                 let actual = parse_git_config_commentchar(input);
-                ((x.clone(), actual), (x, expected))
+                ((x.clone(), actual), (x, expected.into()))
             })
             .unzip();
         assert_eq!(expected, actual);

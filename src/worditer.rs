@@ -5,9 +5,9 @@ use std::borrow::Cow;
 /// definition and the exact details are unspecified. Rather, the iterator promises to produce
 /// results that wrap safely and sensibly.
 pub(crate) struct WordIter<'text> {
-    /// The commit message comment character, to avoid creating a word that starts with the comment
-    /// character lest that word degenerates into a comment.
-    comment_char: char,
+    /// The commit message comment string, to avoid creating a word that starts with the comment
+    /// string lest that word degenerates into a comment.
+    comment_string: String,
     /// The "next word", if present, may be considered the head of a list whose rest is
     /// [`Self::naive_words`] before the next invocation of [`Self::next()`]. It was the last word
     /// extracted from `naive_words` on the previous invocation of `next()` that was determined to
@@ -19,16 +19,16 @@ pub(crate) struct WordIter<'text> {
 }
 
 impl<'text> WordIter<'text> {
-    pub fn new(text: &'text str, comment_char: char) -> Self {
+    pub fn new(text: &'text str, comment_string: &'text str) -> Self {
         WordIter {
-            comment_char,
+            comment_string: comment_string.into(),
             next_word: None,
             naive_words: text.split(' '),
         }
     }
 
     fn is_non_breaking_word(&self, word: &str) -> bool {
-        word.starts_with(self.comment_char)
+        word.starts_with(&self.comment_string)
             || match WordIter::describe_word(word) {
                 WordJoinerState::FootnoteRefUnseen => true,
                 WordJoinerState::FootnoteRefOpen => false,
@@ -121,7 +121,7 @@ mod tests {
     type Item<'text> = <WordIter<'text> as Iterator>::Item;
 
     fn iter(text: &str) -> WordIter {
-        WordIter::new(text, '#')
+        WordIter::new(text, "#")
     }
 
     fn collect(it: WordIter) -> Vec<Item> {
@@ -132,9 +132,12 @@ mod tests {
         collect(iter(text))
     }
 
-    fn some_comment_char() -> char {
-        let some_comment_chars = ['#', ';', '!', '%'];
-        *some_comment_chars.choose(&mut rand::thread_rng()).unwrap()
+    fn some_comment_string() -> String {
+        let some_comment_strings = ["#", ";", "!", "%"].map(|c| c.to_string());
+        some_comment_strings
+            .choose(&mut rand::thread_rng())
+            .unwrap()
+            .clone()
     }
 
     #[test]
@@ -190,15 +193,15 @@ mod tests {
     }
 
     #[test]
-    fn merges_comment_char() {
-        let comment_char = some_comment_char();
+    fn merges_comment_string() {
+        let comment_string = some_comment_string();
 
-        let text = format!("a {}1b d", comment_char);
+        let text = format!("a {}1b d", comment_string);
         let res = {
-            let it = WordIter::new(&text, comment_char);
+            let it = WordIter::new(&text, &comment_string);
             collect(it)
         };
-        let expect = [&format!("a {}1b", comment_char), "d"];
+        let expect = [&format!("a {}1b", comment_string), "d"];
 
         assert_eq!(res, expect);
     }
@@ -212,29 +215,29 @@ mod tests {
     }
 
     #[test]
-    fn lone_comment_char_binds_left() {
+    fn lone_comment_string_binds_left() {
         // This is a limitation of the text analysis heuristic. The test case is
-        // a special-case of "merges_comment_char()" made explicit.
+        // a special-case of "merges_comment_string()" made explicit.
         //
-        // The first space after a comment character marks the end of a word,
-        // that comment character being the last part of the word.
+        // The first space after a comment string marks the end of a word,
+        // that comment string being the last part of the word.
         // This means that "a #1" and "a # 1" behave differently, producing
-        // 1 respectively 2 words, the comment character always in the same word
+        // 1 respectively 2 words, the comment string always in the same word
         // as the preceding token:
-        // - The comment character must join the preceding token to avoid being
+        // - The comment string must join the preceding token to avoid being
         //   pushed onto its own line and accidentally degrading into a comment.
-        // - The token after the comment character cannot join the preceding
+        // - The token after the comment string cannot join the preceding
         //   token because we have no way to determine that that token or any of
         //   the subsequent tokens should be individual words or parts of the
         //   first token -- this is the least surprising heuristic we can apply.
-        let comment_char = some_comment_char();
+        let comment_string = some_comment_string();
 
-        let text = format!("a {} b", comment_char);
+        let text = format!("a {} b", comment_string);
         let res = {
-            let it = WordIter::new(&text, comment_char);
+            let it = WordIter::new(&text, &comment_string);
             collect(it)
         };
-        let expect = [&format!("a {}", comment_char), "b"];
+        let expect = [&format!("a {}", comment_string), "b"];
 
         assert_eq!(res, expect);
     }

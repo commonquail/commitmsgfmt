@@ -7,20 +7,20 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct CommitMsgFmt {
     /// Max width of the message body; not used for the subject line.
     width: usize,
-    /// The character that identifies a comment when used in column 0 of a line.
-    comment_char: char,
+    /// The string that identifies a comment when started in column 0 of a line.
+    comment_string: String,
 }
 
 impl CommitMsgFmt {
-    pub fn new(width: usize, comment_char: char) -> CommitMsgFmt {
+    pub fn new(width: usize, comment_string: &str) -> CommitMsgFmt {
         CommitMsgFmt {
             width,
-            comment_char,
+            comment_string: comment_string.into(),
         }
     }
 
     pub fn filter(&self, input: &str) -> String {
-        let msg = parse(input, self.comment_char);
+        let msg = parse(input, &self.comment_string);
         // The output size can be less than the input size only if the input contains characters
         // that will be trimmed, such as leading whitespace, which is improbable. It is more likely
         // the output size will exceed the input size due to injected linefeeds and continuation
@@ -76,7 +76,7 @@ impl CommitMsgFmt {
             None => self.width,
         };
         let mut cur_line_len = 0;
-        for word in WordIter::new(paragraph, self.comment_char) {
+        for word in WordIter::new(paragraph, &self.comment_string) {
             let word_len = word.graphemes(true).count();
 
             // Not a new line so we need to fiddle with whitespace.
@@ -105,7 +105,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn filter(w: usize, s: &str) -> String {
-        CommitMsgFmt::new(w, '#').filter(s)
+        CommitMsgFmt::new(w, "#").filter(s)
     }
 
     #[test]
@@ -657,7 +657,7 @@ foo
     }
 
     #[test]
-    fn preserves_scissored_content_with_custom_comment_char() {
+    fn preserves_scissored_content_with_custom_comment_string() {
         let input = "
 foo
 
@@ -683,7 +683,7 @@ preserve
 
 content
 ";
-        let fmt = CommitMsgFmt::new(72, ';');
+        let fmt = CommitMsgFmt::new(72, ";");
         assert_eq!(fmt.filter(input), expected);
     }
 
