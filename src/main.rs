@@ -22,8 +22,8 @@ macro_rules! str_help_common {
         r#"Usage: {} [OPTIONS]
 Formats commit messages better than fmt(1) and Vim
 
-  -h, --help        Prints help information
-  -V, --version     Prints version information"#
+  -h, --help                 Prints help information
+  -V, --version              Prints version information"#
     };
 }
 
@@ -32,7 +32,8 @@ macro_rules! str_help_short {
         concat!(
             str_help_common!(),
             r#"
-  -w, --width <NUM> The message body max paragraph width. Default: 72."#
+  -w, --width <NUM>          The message body max paragraph width. Default: 72.
+  -c, --comment-string <STR> The string to detect a comment. Default taken from git config."#
         )
     };
 }
@@ -56,7 +57,12 @@ macro_rules! str_help_long {
               on its length to avoid rejecting too many valid subjects.
 
             - Text indented at least 4 spaces or 1 tab; trailers; and block
-              quotes are printed unchanged."#
+              quotes are printed unchanged.
+
+  -c, --comment-string <STR>
+            The string used to detect a comment. By default it queries git config
+            for the value and defaults to `#`. Supply this to use a different value
+            such as `JJ` for files that are to be commited in a jujutsu repository."#
         )
     };
 }
@@ -139,6 +145,7 @@ enum CliArgument<'a> {
 
 enum ConfigArgument<'a> {
     Width(Option<&'a str>),
+    CommentString(Option<&'a str>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -150,9 +157,11 @@ pub struct Config {
 impl Config {
     fn new(args: Vec<ConfigArgument<'_>>) -> CliResult<'_, Config> {
         let mut width: Option<&str> = None;
+        let mut comment_string: Option<&str> = None;
         for arg in args {
             match arg {
                 ConfigArgument::Width(s) => width = s,
+                ConfigArgument::CommentString(s) => comment_string = s,
             }
         }
 
@@ -165,9 +174,13 @@ impl Config {
             return Err(CliError::ArgWidthOutOfBounds(width));
         }
 
+        let comment_string = match comment_string {
+            None => parse_git_config_commentchar(git_config_commentchar()),
+            Some(comment) => comment.to_string(),
+        };
         let cfg = Config {
             width: width as usize,
-            comment_string: parse_git_config_commentchar(git_config_commentchar()),
+            comment_string,
         };
 
         Ok(cfg)
@@ -249,6 +262,10 @@ fn parse_args(args: &'_ [String]) -> Vec<CliArgument<'_>> {
             let parsed_arg = match longopt_key {
                 "--help" => CliArgument::HelpLong,
                 "--version" => CliArgument::Version,
+                "--comment-string" => {
+                    let p = longopt_value();
+                    CliArgument::Config(ConfigArgument::CommentString(p))
+                }
                 "--width" => {
                     let w = longopt_value();
                     CliArgument::Config(ConfigArgument::Width(w))
