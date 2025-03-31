@@ -121,7 +121,7 @@ mod tests {
     type Item<'text> = <WordIter<'text> as Iterator>::Item;
 
     fn iter(text: &str) -> WordIter {
-        WordIter::new(&text, '#')
+        WordIter::new(text, '#')
     }
 
     fn collect(it: WordIter) -> Vec<Item> {
@@ -129,7 +129,7 @@ mod tests {
     }
 
     fn iter_collect(text: &str) -> Vec<Item> {
-        collect(iter(&text))
+        collect(iter(text))
     }
 
     fn some_comment_char() -> char {
@@ -141,7 +141,7 @@ mod tests {
     fn smoke() {
         let text = "a b #1 c [1] d";
         let expect = ["a", "b #1", "c [1]", "d"];
-        let res = iter_collect(&text);
+        let res = iter_collect(text);
         assert_eq!(res, expect);
     }
 
@@ -149,7 +149,7 @@ mod tests {
     fn smoke_ridiculous() {
         let text = "a #1 #2 b [1][2] [3]. [4]c d";
         let expect = ["a #1 #2", "b [1][2] [3].", "[4]c", "d"];
-        let res = iter_collect(&text);
+        let res = iter_collect(text);
         assert_eq!(res, expect);
     }
 
@@ -157,7 +157,7 @@ mod tests {
     fn empty_is_empty() {
         let empty_string = "";
         let expect = [empty_string];
-        let res = iter_collect(&empty_string);
+        let res = iter_collect(empty_string);
         assert_eq!(res, expect);
     }
 
@@ -165,7 +165,7 @@ mod tests {
     fn no_space_is_input() {
         let no_space_text = "a";
         let expect = ["a"];
-        let res = iter_collect(&no_space_text);
+        let res = iter_collect(no_space_text);
         assert_eq!(res, expect);
     }
 
@@ -173,7 +173,7 @@ mod tests {
     fn many_spaces() {
         let text = "a   b";
         let expect = ["a", "b"];
-        let res = iter_collect(&text);
+        let res = iter_collect(text);
         assert_eq!(res, expect);
     }
 
@@ -181,7 +181,7 @@ mod tests {
     fn none_result_repeats() {
         let res = {
             let no_space_text = "a";
-            let mut it = iter(&no_space_text);
+            let mut it = iter(no_space_text);
             let _ = it.next();
             [it.next(), it.next()]
         };
@@ -207,7 +207,7 @@ mod tests {
     fn merges_en_dash() {
         let text = "a -- b";
         let expect = ["a --", "b"];
-        let res = iter_collect(&text);
+        let res = iter_collect(text);
         assert_eq!(res, expect);
     }
 
@@ -252,7 +252,7 @@ mod tests {
     fn merges_footnote_text_references() {
         let text = "a [foo] [bar] b";
         let expect = ["a [foo] [bar]", "b"];
-        let res = iter_collect(&text);
+        let res = iter_collect(text);
         assert_eq!(res, expect);
     }
 
@@ -267,7 +267,7 @@ mod tests {
             "e",
             "[qaz]f",
         ];
-        let res = iter_collect(&text);
+        let res = iter_collect(text);
         assert_eq!(res, expect);
     }
 
@@ -278,7 +278,7 @@ mod tests {
             ("a [b", vec!["a".into(), "[b".into()]),
         ];
         for (input, expected) in matrix.iter() {
-            let actual = iter_collect(&input);
+            let actual = iter_collect(input);
             assert_eq!(expected, &actual);
         }
     }

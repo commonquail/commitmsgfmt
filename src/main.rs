@@ -79,7 +79,7 @@ impl<'a> From<io::Error> for CliError<'a> {
     }
 }
 
-impl<'a> fmt::Display for CliError<'a> {
+impl fmt::Display for CliError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             CliError::ArgUnrecognized(ref s) => write!(f, "Found argument '{}'", s),
@@ -96,7 +96,7 @@ impl<'a> fmt::Display for CliError<'a> {
     }
 }
 
-impl<'a> Error for CliError<'a> {
+impl Error for CliError<'_> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match *self {
             CliError::ArgUnrecognized(_) => None,
@@ -176,7 +176,7 @@ impl Config {
 
 fn git_config_commentchar() -> Result<Vec<u8>, io::Error> {
     std::process::Command::new("git")
-        .args(&["config", "core.commentChar"])
+        .args(["config", "core.commentChar"])
         .output()
         .map(|o| o.stdout)
 }
@@ -383,7 +383,7 @@ mod tests {
 
     fn assert_cmd_success(output: &Output) {
         assert!(output.status.success());
-        assert_stderr_empty(&output);
+        assert_stderr_empty(output);
     }
 
     fn assert_stderr_empty(output: &Output) {
@@ -665,7 +665,7 @@ mod tests {
     #[test]
     fn arg_width_with_multiple_values_exits_with_code_1() {
         let mut cmd = target_binary();
-        cmd.args(&["-w", "1", "2"]);
+        cmd.args(["-w", "1", "2"]);
 
         let output = run_debug_binary_no_input(cmd);
 
@@ -698,7 +698,7 @@ y
     #[test]
     fn arg_width_short_form_is_w() {
         let mut cmd = target_binary();
-        cmd.args(&["-w1"]);
+        cmd.args(["-w1"]);
         let output = run_debug_binary_with_input(cmd, b"subject\nb o d y");
 
         assert_cmd_success(&output);
@@ -719,8 +719,8 @@ y
     #[test]
     fn arg_width_only_last_specified_matters() {
         let mut cmd = target_binary_with_width("string");
-        cmd.args(&["-w", "1"]);
-        cmd.args(&["-w", "100"]);
+        cmd.args(["-w", "1"]);
+        cmd.args(["-w", "100"]);
         let output = run_debug_binary_with_input(cmd, b"subject\nb o d y");
 
         assert_cmd_success(&output);
@@ -772,7 +772,7 @@ b o d y
     #[test]
     fn arg_help_disables_arg_width() {
         let mut cmd = target_binary();
-        cmd.args(&["--width", "10"]);
+        cmd.args(["--width", "10"]);
         cmd.arg("--help");
         let output = run_debug_binary_no_input(cmd);
 
@@ -845,7 +845,7 @@ b o d y
     #[test]
     fn arg_version_disables_arg_width() {
         let mut cmd = target_binary();
-        cmd.args(&["--width", "10"]);
+        cmd.args(["--width", "10"]);
         cmd.arg("--version");
         let output = run_debug_binary_no_input(cmd);
 
@@ -949,7 +949,7 @@ b o d y
         cargo_run_cmd.push("--width".into());
         cargo_run_cmd.push("72".into());
         let output = Command::new("bash")
-            .args(&[
+            .args([
                 "-c",
                 &format!(
                     "set -e
