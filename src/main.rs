@@ -245,12 +245,7 @@ fn parse_args(args: &'_ [String]) -> Vec<CliArgument<'_>> {
             // "--width=42"
             let mut kv = arg.splitn(2, '=');
             let longopt_key = kv.next().expect("SplitN[0] exists");
-            let longopt_value = || {
-                kv.next().or_else(|| {
-                    std::mem::drop(kv);
-                    iter.next()
-                })
-            };
+            let mut longopt_value = || kv.next().or_else(|| iter.next());
             let parsed_arg = match longopt_key {
                 "--help" => CliArgument::HelpLong,
                 "--version" => CliArgument::Version,
