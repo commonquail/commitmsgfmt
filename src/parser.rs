@@ -46,7 +46,7 @@ impl CodeFence<'_> {
     }
 }
 
-pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
+pub fn parse<'a>(input: &'a str, comment_string: &str) -> Vec<Token<'a>> {
     let mut toks = Vec::new();
 
     let mut has_subject = false;
@@ -65,7 +65,7 @@ pub fn parse(input: &str, comment_char: char) -> Vec<Token> {
         } else if let Some(fence) = line_as_code_fence(line) {
             toks.push(Token::FencedCodeBlock(line));
             in_code_fence = Some(fence);
-        } else if line.starts_with(comment_char) {
+        } else if line.starts_with(comment_string) {
             let t = if &line[1..] == " ------------------------ >8 ------------------------" {
                 has_scissors = true;
                 Token::Scissored(line)
@@ -419,7 +419,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn parse(s: &str) -> Vec<Token> {
-        super::parse(s, '#')
+        super::parse(s, "#")
     }
 
     #[test]
@@ -453,7 +453,7 @@ mod tests {
         ];
         for (input, expected) in matrix.iter() {
             let expected = expected.map(|e| ListItem(ListIndent(e.0), ListType(e.1), e.2.into()));
-            let actual = line_as_list_item(&input);
+            let actual = line_as_list_item(input);
             assert_eq!(expected, actual, "'{}'=>{:?}", input, expected);
         }
     }
@@ -471,7 +471,7 @@ mod tests {
             ("[a]: b", true),
         ];
         for (input, expected) in matrix.iter() {
-            let actual = is_line_footnote(&input);
+            let actual = is_line_footnote(input);
             assert_eq!(expected, &actual, "'{}'=>{}", input, expected);
         }
     }
@@ -503,13 +503,13 @@ mod tests {
 
     #[test]
     fn parses_default_comment() {
-        assert_eq!(super::parse("# foo", '#'), [Comment("# foo")]);
+        assert_eq!(super::parse("# foo", "#"), [Comment("# foo")]);
     }
 
     #[test]
     fn parses_custom_comment() {
-        assert_eq!(super::parse("@ foo", '@'), [Comment("@ foo")]);
-        assert_eq!(super::parse("# foo", '@'), [Subject("# foo")]);
+        assert_eq!(super::parse("@ foo", "@"), [Comment("@ foo")]);
+        assert_eq!(super::parse("# foo", "@"), [Subject("# foo")]);
     }
 
     #[test]
@@ -583,7 +583,7 @@ mod tests {
     fn bug_subject_comprised_of_periods_becomes_empty() {
         let periods = "....";
 
-        assert_eq!(parse(&periods), [Subject("")]);
+        assert_eq!(parse(periods), [Subject("")]);
     }
 
     #[test]
@@ -806,7 +806,7 @@ backtick
             FencedCodeBlock("   ```"),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -828,7 +828,7 @@ tilde
             Paragraph("~~~ tilde ~~~".into()),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -852,7 +852,7 @@ subject
             Literal("    ```"),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -918,7 +918,7 @@ backtick 3 2
             FencedCodeBlock("  ```"),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -954,7 +954,7 @@ backtick 5 6
             FencedCodeBlock("``````"),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -976,7 +976,7 @@ backtick
             Paragraph("`` backtick ``".into()),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -1032,7 +1032,7 @@ backtick info accept legal info with tilde
             FencedCodeBlock("```"),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -1060,7 +1060,7 @@ b
             Paragraph("b".into()),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -1096,7 +1096,7 @@ backtick
             FencedCodeBlock("````"),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -1118,7 +1118,7 @@ backtick
             FencedCodeBlock("backtick"),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -1154,7 +1154,7 @@ subject
             BlockQuote("> backtick"),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -1190,7 +1190,7 @@ subject
             FencedCodeBlock("  backtick"),
         ];
 
-        let actual = parse(&input);
+        let actual = parse(input);
 
         assert_eq!(expected, actual);
     }
@@ -1713,7 +1713,7 @@ do
     }
 
     #[test]
-    fn parses_scissored_content_with_custom_comment_char() {
+    fn parses_scissored_content_with_custom_comment_string() {
         assert_eq!(
             super::parse(
                 "
@@ -1727,7 +1727,7 @@ $ ------------------------ >8 ------------------------
 do
  not
   format
-", '$'
+", "$"
             ),
             [
                 VerticalSpace,

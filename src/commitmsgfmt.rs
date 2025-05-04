@@ -7,20 +7,20 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct CommitMsgFmt {
     /// Max width of the message body; not used for the subject line.
     width: usize,
-    /// The character that identifies a comment when used in column 0 of a line.
-    comment_char: char,
+    /// The string that identifies a comment when started in column 0 of a line.
+    comment_string: String,
 }
 
 impl CommitMsgFmt {
-    pub fn new(width: usize, comment_char: char) -> CommitMsgFmt {
+    pub fn new(width: usize, comment_string: &str) -> CommitMsgFmt {
         CommitMsgFmt {
             width,
-            comment_char,
+            comment_string: comment_string.into(),
         }
     }
 
     pub fn filter(&self, input: &str) -> String {
-        let msg = parse(input, self.comment_char);
+        let msg = parse(input, &self.comment_string);
         // The output size can be less than the input size only if the input contains characters
         // that will be trimmed, such as leading whitespace, which is improbable. It is more likely
         // the output size will exceed the input size due to injected linefeeds and continuation
@@ -76,7 +76,7 @@ impl CommitMsgFmt {
             None => self.width,
         };
         let mut cur_line_len = 0;
-        for word in WordIter::new(paragraph, self.comment_char) {
+        for word in WordIter::new(paragraph, &self.comment_string) {
             let word_len = word.graphemes(true).count();
 
             // Not a new line so we need to fiddle with whitespace.
@@ -105,7 +105,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn filter(w: usize, s: &str) -> String {
-        CommitMsgFmt::new(w, '#').filter(&s)
+        CommitMsgFmt::new(w, "#").filter(s)
     }
 
     #[test]
@@ -160,7 +160,7 @@ format this
 öööö ü";
 
         assert_eq!(
-            filter(5, &s),
+            filter(5, s),
             "
 ääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääääää
 
@@ -185,7 +185,7 @@ Signed-off-by: Some Guy <some@email.address>
 Cc: Abominable Snowman <yeti@mountain.np>
 ";
 
-        assert_eq!(filter(10, &msg), msg, "print trailers literally");
+        assert_eq!(filter(10, msg), msg, "print trailers literally");
     }
 
     #[test]
@@ -212,7 +212,7 @@ foo
 \t\tcontinuation
 ";
 
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -239,7 +239,7 @@ block
 ```
 ";
 
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -264,7 +264,7 @@ backtick
 b
 ";
 
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -288,7 +288,7 @@ foo
 ~~~ tilde fenced code block not supported ~~~
 ";
 
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -302,7 +302,7 @@ paragraph
 
         let expected = input;
 
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -317,7 +317,7 @@ paragraph
 
         let expected = input;
 
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -357,7 +357,7 @@ xx xx xxxxxx xxxxxxx
 xxxxxxxxxxxxxx.
 ";
 
-        assert_eq!(filter(30, &input), expected);
+        assert_eq!(filter(30, input), expected);
     }
 
     #[test]
@@ -395,7 +395,7 @@ paragraph
     footnote key
 ";
 
-        assert_eq!(filter(20, &msg), expected);
+        assert_eq!(filter(20, msg), expected);
     }
 
     #[test]
@@ -435,7 +435,7 @@ w
 www [4] .
 ";
 
-        assert_eq!(filter(8, &msg), expected);
+        assert_eq!(filter(8, msg), expected);
     }
 
     #[test]
@@ -481,7 +481,7 @@ foo
 - ääääääääääääääëëëëëëëëëëëëëëö
 ";
 
-        assert_eq!(filter(16, &input), expected);
+        assert_eq!(filter(16, input), expected);
     }
 
     #[test]
@@ -506,7 +506,7 @@ foo
     that should be realigned
 ";
 
-        assert_eq!(filter(34, &input), expected);
+        assert_eq!(filter(34, input), expected);
     }
 
     #[test]
@@ -525,7 +525,7 @@ foo
 [1] note
     note
 ";
-        assert_eq!(filter(3, &input), expected);
+        assert_eq!(filter(3, input), expected);
     }
 
     #[test]
@@ -543,7 +543,7 @@ foo
 - list item that should not have been wrapped
 ";
 
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -565,7 +565,7 @@ foo
 - list item
 ";
 
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -587,7 +587,7 @@ foo
     - literal
 ";
 
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -608,7 +608,7 @@ foo
 7 numbered
 ";
 
-        assert_eq!(filter(72, &msg), msg);
+        assert_eq!(filter(72, msg), msg);
     }
 
     #[test]
@@ -637,7 +637,7 @@ preserve
 
 content
 ";
-        assert_eq!(filter(72, &input), expected);
+        assert_eq!(filter(72, input), expected);
     }
 
     #[test]
@@ -653,11 +653,11 @@ foo
 
 # comment
 ";
-        assert_eq!(filter(2, &input), expected);
+        assert_eq!(filter(2, input), expected);
     }
 
     #[test]
-    fn preserves_scissored_content_with_custom_comment_char() {
+    fn preserves_scissored_content_with_custom_comment_string() {
         let input = "
 foo
 
@@ -683,8 +683,8 @@ preserve
 
 content
 ";
-        let fmt = CommitMsgFmt::new(72, ';');
-        assert_eq!(fmt.filter(&input), expected);
+        let fmt = CommitMsgFmt::new(72, ";");
+        assert_eq!(fmt.filter(input), expected);
     }
 
     #[test]
@@ -711,7 +711,7 @@ b\tc\u{00a0}d\u{2003}e\u{2009}\u{2009}f\u{202f}g
 
     a b\tc\u{00a0}d\u{2003}e\u{2009}f\u{202f}g
 ";
-        assert_eq!(filter(2, &input), expected);
+        assert_eq!(filter(2, input), expected);
     }
 
     #[test]
@@ -746,7 +746,7 @@ https://a.really-long-url.example
 
 [1] https://a.really-long-url.example
 ";
-        assert_eq!(filter(10, &input), expected);
+        assert_eq!(filter(10, input), expected);
     }
 
     #[test]
@@ -772,6 +772,6 @@ wup
 [qux] note
 [2] note
 ";
-        assert_eq!(filter(2, &input), expected);
+        assert_eq!(filter(2, input), expected);
     }
 }

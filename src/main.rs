@@ -22,8 +22,8 @@ macro_rules! str_help_common {
         r#"Usage: {} [OPTIONS]
 Formats commit messages better than fmt(1) and Vim
 
-  -h, --help        Prints help information
-  -V, --version     Prints version information"#
+  -h, --help                 Prints help information
+  -V, --version              Prints version information"#
     };
 }
 
@@ -32,7 +32,8 @@ macro_rules! str_help_short {
         concat!(
             str_help_common!(),
             r#"
-  -w, --width <NUM> The message body max paragraph width. Default: 72."#
+  -w, --width <NUM>          The message body max paragraph width. Default: 72.
+  -c, --comment-string <STR> The string to detect a comment. Default taken from git config."#
         )
     };
 }
@@ -56,7 +57,12 @@ macro_rules! str_help_long {
               on its length to avoid rejecting too many valid subjects.
 
             - Text indented at least 4 spaces or 1 tab; trailers; and block
-              quotes are printed unchanged."#
+              quotes are printed unchanged.
+
+  -c, --comment-string <STR>
+            The string used to detect a comment. By default it queries git config
+            for the value and defaults to `#`. Supply this to use a different value
+            such as `JJ` for files that are to be commited in a jujutsu repository."#
         )
     };
 }
@@ -79,7 +85,7 @@ impl<'a> From<io::Error> for CliError<'a> {
     }
 }
 
-impl<'a> fmt::Display for CliError<'a> {
+impl fmt::Display for CliError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             CliError::ArgUnrecognized(ref s) => write!(f, "Found argument '{}'", s),
@@ -96,7 +102,7 @@ impl<'a> fmt::Display for CliError<'a> {
     }
 }
 
-impl<'a> Error for CliError<'a> {
+impl Error for CliError<'_> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match *self {
             CliError::ArgUnrecognized(_) => None,
@@ -139,20 +145,23 @@ enum CliArgument<'a> {
 
 enum ConfigArgument<'a> {
     Width(Option<&'a str>),
+    CommentString(Option<&'a str>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Config {
     width: usize,
-    comment_char: char,
+    comment_string: String,
 }
 
 impl Config {
     fn new(args: Vec<ConfigArgument<'_>>) -> CliResult<'_, Config> {
         let mut width: Option<&str> = None;
+        let mut comment_string: Option<&str> = None;
         for arg in args {
             match arg {
                 ConfigArgument::Width(s) => width = s,
+                ConfigArgument::CommentString(s) => comment_string = s,
             }
         }
 
@@ -165,9 +174,13 @@ impl Config {
             return Err(CliError::ArgWidthOutOfBounds(width));
         }
 
+        let comment_string = match comment_string {
+            None => parse_git_config_commentchar(git_config_commentchar()),
+            Some(comment) => comment.to_string(),
+        };
         let cfg = Config {
             width: width as usize,
-            comment_char: parse_git_config_commentchar(git_config_commentchar()),
+            comment_string,
         };
 
         Ok(cfg)
@@ -176,21 +189,21 @@ impl Config {
 
 fn git_config_commentchar() -> Result<Vec<u8>, io::Error> {
     std::process::Command::new("git")
-        .args(&["config", "core.commentChar"])
+        .args(["config", "core.commentChar"])
         .output()
         .map(|o| o.stdout)
 }
 
-fn parse_git_config_commentchar(git_output: Result<Vec<u8>, io::Error>) -> char {
+fn parse_git_config_commentchar(git_output: Result<Vec<u8>, io::Error>) -> String {
     let output: Vec<u8> = git_output.unwrap_or_else(|_| "#".into());
 
     // The setting is either unset, "auto", or precisely 1 ASCII character;
     // Git won't commit with an invalid configuration value. "auto" support
     // can be added on-demand, it requires at least 2 passes.
     if output.is_empty() || output == b"auto" {
-        '#'
+        "#".into()
     } else {
-        output[0].into()
+        (output[0] as char).into()
     }
 }
 
@@ -202,7 +215,7 @@ fn main() -> ExitCode {
     }
     let cfg = cfg.unwrap();
 
-    let commitmsgfmt = commitmsgfmt::CommitMsgFmt::new(cfg.width, cfg.comment_char);
+    let commitmsgfmt = commitmsgfmt::CommitMsgFmt::new(cfg.width, &cfg.comment_string);
 
     let result = read_all_bytes_from_stdin()
         .and_then(to_utf8)
@@ -245,15 +258,14 @@ fn parse_args(args: &'_ [String]) -> Vec<CliArgument<'_>> {
             // "--width=42"
             let mut kv = arg.splitn(2, '=');
             let longopt_key = kv.next().expect("SplitN[0] exists");
-            let longopt_value = || {
-                kv.next().or_else(|| {
-                    std::mem::drop(kv);
-                    iter.next()
-                })
-            };
+            let mut longopt_value = || kv.next().or_else(|| iter.next());
             let parsed_arg = match longopt_key {
                 "--help" => CliArgument::HelpLong,
                 "--version" => CliArgument::Version,
+                "--comment-string" => {
+                    let p = longopt_value();
+                    CliArgument::Config(ConfigArgument::CommentString(p))
+                }
                 "--width" => {
                     let w = longopt_value();
                     CliArgument::Config(ConfigArgument::Width(w))
@@ -383,7 +395,7 @@ mod tests {
 
     fn assert_cmd_success(output: &Output) {
         assert!(output.status.success());
-        assert_stderr_empty(&output);
+        assert_stderr_empty(output);
     }
 
     fn assert_stderr_empty(output: &Output) {
@@ -508,49 +520,49 @@ mod tests {
             vec!["binary"],
             Ok(Config {
                 width: 72,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "--width"],
             Ok(Config {
                 width: 72,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "--width", "10"],
             Ok(Config {
                 width: 10,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "--width=21"],
             Ok(Config {
                 width: 21,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "-w"],
             Ok(Config {
                 width: 72,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "-w37"],
             Ok(Config {
                 width: 37,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
             vec!["binary", "-w37", "-w42"],
             Ok(Config {
                 width: 42,
-                comment_char: '#',
+                comment_string: "#".into(),
             }),
         ));
         matrix.push((
@@ -625,18 +637,18 @@ mod tests {
     #[test]
     fn parses_git_config_commentchar() {
         let matrix = vec![
-            (Ok("".into()), '#'),
-            (Ok("auto".into()), '#'),
-            (Ok("#".into()), '#'),
-            (Ok("xy".into()), 'x'),
-            (Err(io::Error::from(io::ErrorKind::PermissionDenied)), '#'),
+            (Ok("".into()), "#"),
+            (Ok("auto".into()), "#"),
+            (Ok("#".into()), "#"),
+            (Ok("xy".into()), "x"),
+            (Err(io::Error::from(io::ErrorKind::PermissionDenied)), "#"),
         ];
         let (actual, expected): (Vec<_>, Vec<_>) = matrix
             .into_iter()
             .map(|(input, expected)| {
                 let x = format!("{:?}", &input);
                 let actual = parse_git_config_commentchar(input);
-                ((x.clone(), actual), (x, expected))
+                ((x.clone(), actual), (x, expected.into()))
             })
             .unzip();
         assert_eq!(expected, actual);
@@ -665,7 +677,7 @@ mod tests {
     #[test]
     fn arg_width_with_multiple_values_exits_with_code_1() {
         let mut cmd = target_binary();
-        cmd.args(&["-w", "1", "2"]);
+        cmd.args(["-w", "1", "2"]);
 
         let output = run_debug_binary_no_input(cmd);
 
@@ -698,7 +710,7 @@ y
     #[test]
     fn arg_width_short_form_is_w() {
         let mut cmd = target_binary();
-        cmd.args(&["-w1"]);
+        cmd.args(["-w1"]);
         let output = run_debug_binary_with_input(cmd, b"subject\nb o d y");
 
         assert_cmd_success(&output);
@@ -719,8 +731,8 @@ y
     #[test]
     fn arg_width_only_last_specified_matters() {
         let mut cmd = target_binary_with_width("string");
-        cmd.args(&["-w", "1"]);
-        cmd.args(&["-w", "100"]);
+        cmd.args(["-w", "1"]);
+        cmd.args(["-w", "100"]);
         let output = run_debug_binary_with_input(cmd, b"subject\nb o d y");
 
         assert_cmd_success(&output);
@@ -772,7 +784,7 @@ b o d y
     #[test]
     fn arg_help_disables_arg_width() {
         let mut cmd = target_binary();
-        cmd.args(&["--width", "10"]);
+        cmd.args(["--width", "10"]);
         cmd.arg("--help");
         let output = run_debug_binary_no_input(cmd);
 
@@ -845,7 +857,7 @@ b o d y
     #[test]
     fn arg_version_disables_arg_width() {
         let mut cmd = target_binary();
-        cmd.args(&["--width", "10"]);
+        cmd.args(["--width", "10"]);
         cmd.arg("--version");
         let output = run_debug_binary_no_input(cmd);
 
@@ -949,7 +961,7 @@ b o d y
         cargo_run_cmd.push("--width".into());
         cargo_run_cmd.push("72".into());
         let output = Command::new("bash")
-            .args(&[
+            .args([
                 "-c",
                 &format!(
                     "set -e
