@@ -70,6 +70,9 @@ pub fn parse<'a>(input: &'a str, comment_string: &str) -> Vec<Token<'a>> {
             let t = if &line[index..] == " ------------------------ >8 ------------------------" {
                 has_scissors = true;
                 Token::Scissored(line)
+            } else if line[index..].starts_with(" ignore-rest") {
+                has_scissors = true;
+                Token::Scissored(line)
             } else {
                 Token::Comment(line)
             };
@@ -1767,6 +1770,37 @@ do
                 Paragraph("# ------------------------ >8 ------------------------ above is not a comment; do the needful".into()),
                 VerticalSpace,
                 Scissored("## ------------------------ >8 ------------------------"),
+                Scissored("do"),
+                Scissored(" not"),
+                Scissored("  format"),
+            ],
+        );
+    }
+    #[test]
+    fn parses_jj_ignore_content() {
+        assert_eq!(
+            super::parse(
+                "
+subject
+
+# ignore-rest
+above is not a comment;
+do the needful
+
+JJ: ignore-rest, including this because it should be a prefix match
+do
+ not
+  format
+",
+                "JJ:"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject"),
+                VerticalSpace,
+                Paragraph("# ignore-rest above is not a comment; do the needful".into()),
+                VerticalSpace,
+                Scissored("JJ: ignore-rest, including this because it should be a prefix match"),
                 Scissored("do"),
                 Scissored(" not"),
                 Scissored("  format"),
