@@ -66,7 +66,8 @@ pub fn parse<'a>(input: &'a str, comment_string: &str) -> Vec<Token<'a>> {
             toks.push(Token::FencedCodeBlock(line));
             in_code_fence = Some(fence);
         } else if line.starts_with(comment_string) {
-            let t = if &line[1..] == " ------------------------ >8 ------------------------" {
+            let index = comment_string.len();
+            let t = if &line[index..] == " ------------------------ >8 ------------------------" {
                 has_scissors = true;
                 Token::Scissored(line)
             } else {
@@ -1736,6 +1737,36 @@ do
                 Paragraph("# ------------------------ >8 ------------------------ above is not a comment; do the needful".into()),
                 VerticalSpace,
                 Scissored("$ ------------------------ >8 ------------------------"),
+                Scissored("do"),
+                Scissored(" not"),
+                Scissored("  format"),
+            ],
+        );
+    }
+    #[test]
+    fn parses_scissored_content_with_custom_multichar_comment_string() {
+        assert_eq!(
+            super::parse(
+                "
+subject
+
+# ------------------------ >8 ------------------------
+above is not a comment;
+do the needful
+
+## ------------------------ >8 ------------------------
+do
+ not
+  format
+", "##"
+            ),
+            [
+                VerticalSpace,
+                Subject("subject"),
+                VerticalSpace,
+                Paragraph("# ------------------------ >8 ------------------------ above is not a comment; do the needful".into()),
+                VerticalSpace,
+                Scissored("## ------------------------ >8 ------------------------"),
                 Scissored("do"),
                 Scissored(" not"),
                 Scissored("  format"),
