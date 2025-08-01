@@ -62,7 +62,7 @@ macro_rules! str_help_long {
   -c, --comment-string <STR>
             The string used to detect a comment. By default it queries git config
             for the value and defaults to `#`. Supply this to use a different value
-            such as `JJ` for files that are to be commited in a jujutsu repository."#
+            such as `JJ` for files that are to be commited in a Jujutsu repository."#
         )
     };
 }
@@ -188,6 +188,11 @@ impl Config {
 }
 
 fn git_config_commentchar() -> Result<Vec<u8>, io::Error> {
+    // Git >= v2.45.0: core.commentChar==core.commentString and both support a
+    // "string." We only check core.commentChar to balance
+    // - compatibility with older versions of Git
+    // - implementation complexity
+    // - author's laziness
     std::process::Command::new("git")
         .args(["config", "core.commentChar"])
         .output()
