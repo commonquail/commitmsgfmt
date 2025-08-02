@@ -116,7 +116,7 @@ mod tests {
     use super::*;
 
     use pretty_assertions::assert_eq;
-    use rand::seq::SliceRandom;
+    use rand::prelude::*;
 
     type Item<'text> = <WordIter<'text> as Iterator>::Item;
 
@@ -135,7 +135,7 @@ mod tests {
     fn some_comment_string() -> String {
         let some_comment_strings = ["#", ";", "!", "%"].map(|c| c.to_string());
         some_comment_strings
-            .choose(&mut rand::thread_rng())
+            .choose(&mut rand::rng())
             .unwrap()
             .clone()
     }

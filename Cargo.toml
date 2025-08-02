@@ -17,4 +17,4 @@ encoding = "0.2.33"
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
-rand = "0.8.5"
+rand = "0.9.1"
