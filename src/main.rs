@@ -88,12 +88,12 @@ impl<'a> From<io::Error> for CliError<'a> {
 impl fmt::Display for CliError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CliError::ArgUnrecognized(ref s) => write!(f, "Found argument '{}'", s),
+            CliError::ArgUnrecognized(ref s) => write!(f, "Found argument '{s}'"),
             CliError::ArgWidthNaN(ref w) => {
-                write!(f, "--width: must be a positive integer, was: '{}'", w)
+                write!(f, "--width: must be a positive integer, was: '{w}'")
             }
             CliError::ArgWidthOutOfBounds(ref w) => {
-                write!(f, "--width: must be greater than 0, was: '{}'", w)
+                write!(f, "--width: must be greater than 0, was: '{w}'")
             }
             CliError::EarlyExit(ref s) => s.fmt(f),
             CliError::Io(ref err) => err.fmt(f),
@@ -119,7 +119,7 @@ impl Termination for CliError<'_> {
     fn report(self) -> ExitCode {
         match self {
             CliError::EarlyExit(s) => {
-                println!("{}", s);
+                println!("{s}");
                 ExitCode::SUCCESS
             }
             CliError::Io(ref e) if e.kind() == io::ErrorKind::BrokenPipe => {
@@ -128,7 +128,7 @@ impl Termination for CliError<'_> {
                 ExitCode::from(ret)
             }
             _ => {
-                eprintln!("fatal: {}", self);
+                eprintln!("fatal: {self}");
                 ExitCode::FAILURE
             }
         }
