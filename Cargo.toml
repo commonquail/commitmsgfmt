@@ -12,9 +12,9 @@ edition = "2021"
 rust-version = "1.63.0"
 
 [dependencies]
-unicode-segmentation = "1.10.1"
+unicode-segmentation = "1.12.0"
 encoding = "0.2.33"
 
 [dev-dependencies]
-pretty_assertions = "1.4.0"
-rand = "0.8.5"
+pretty_assertions = "1.4.1"
+rand = "0.9.1"
