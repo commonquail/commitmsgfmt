@@ -65,17 +65,10 @@ pub fn parse<'a>(input: &'a str, comment_string: &str) -> Vec<Token<'a>> {
         } else if let Some(fence) = line_as_code_fence(line) {
             toks.push(Token::FencedCodeBlock(line));
             in_code_fence = Some(fence);
-        } else if line.starts_with(comment_string) {
-            let index = comment_string.len();
-            let t = if &line[index..] == " ------------------------ >8 ------------------------" {
+        } else if let Some(t) = line_as_comment_or_scissor(line, comment_string) {
+            if let Token::Scissored(_) = t {
                 has_scissors = true;
-                Token::Scissored(line)
-            } else if line[index..].starts_with(" ignore-rest") {
-                has_scissors = true;
-                Token::Scissored(line)
-            } else {
-                Token::Comment(line)
-            };
+            }
             toks.push(t);
         } else if is_line_blank_or_whitespace(line) {
             if toks.last() != Some(&Token::VerticalSpace) {
@@ -179,6 +172,22 @@ fn extend_prose_buffer_with_line<'input>(
     None
 }
 
+fn line_as_comment_or_scissor<'a>(line: &'a str, comment_string: &str) -> Option<Token<'a>> {
+    line.strip_prefix(comment_string).map(|comment_suffix| {
+        match is_comment_suffix_scissor_marker(comment_suffix) {
+            true => Token::Scissored(line),
+            false => Token::Comment(line),
+        }
+    })
+}
+
+fn is_comment_suffix_scissor_marker(comment_suffix: &str) -> bool {
+    // https://git-scm.com/docs/git-commit#Documentation/git-commit.txt-scissors
+    // https://github.com/jj-vcs/jj/blob/v0.31.0/cli/src/description_util.rs#L162
+    comment_suffix == " ------------------------ >8 ------------------------"
+        || comment_suffix.starts_with(" ignore-rest")
+}
+
 fn is_line_blank_or_whitespace(line: &str) -> bool {
     line.chars().all(char::is_whitespace)
 }
@@ -260,7 +269,7 @@ fn is_line_trailer(line: &str) -> bool {
     }
 }
 
-fn line_as_list_item(line: &str) -> Option<Token> {
+fn line_as_list_item(line: &str) -> Option<Token<'_>> {
     enum LiState {
         New,
         IndentSp1,
@@ -349,7 +358,7 @@ fn line_as_list_item(line: &str) -> Option<Token> {
     })
 }
 
-fn line_as_code_fence(line: &'_ str) -> Option<CodeFence> {
+fn line_as_code_fence(line: &str) -> Option<CodeFence<'_>> {
     enum FenceState {
         New,
         IndentSp1,
@@ -407,7 +416,7 @@ fn line_as_code_fence(line: &'_ str) -> Option<CodeFence> {
     }
 }
 
-fn line_as_line_block_quote(line: &str) -> Option<Token> {
+fn line_as_line_block_quote(line: &str) -> Option<Token<'_>> {
     if line.starts_with('>') {
         Some(Token::BlockQuote(line))
     } else {
@@ -422,7 +431,7 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
-    fn parse(s: &str) -> Vec<Token> {
+    fn parse(s: &str) -> Vec<Token<'_>> {
         super::parse(s, "#")
     }
 
