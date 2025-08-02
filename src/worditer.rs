@@ -120,7 +120,7 @@ mod tests {
 
     type Item<'text> = <WordIter<'text> as Iterator>::Item;
 
-    fn iter(text: &str) -> WordIter {
+    fn iter(text: &str) -> WordIter<'_> {
         WordIter::new(text, "#")
     }
 
@@ -128,7 +128,7 @@ mod tests {
         it.collect()
     }
 
-    fn iter_collect(text: &str) -> Vec<Item> {
+    fn iter_collect(text: &str) -> Vec<Item<'_>> {
         collect(iter(text))
     }
 

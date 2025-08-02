@@ -269,7 +269,7 @@ fn is_line_trailer(line: &str) -> bool {
     }
 }
 
-fn line_as_list_item(line: &str) -> Option<Token> {
+fn line_as_list_item(line: &str) -> Option<Token<'_>> {
     enum LiState {
         New,
         IndentSp1,
@@ -358,7 +358,7 @@ fn line_as_list_item(line: &str) -> Option<Token> {
     })
 }
 
-fn line_as_code_fence(line: &'_ str) -> Option<CodeFence> {
+fn line_as_code_fence(line: &str) -> Option<CodeFence<'_>> {
     enum FenceState {
         New,
         IndentSp1,
@@ -416,7 +416,7 @@ fn line_as_code_fence(line: &'_ str) -> Option<CodeFence> {
     }
 }
 
-fn line_as_line_block_quote(line: &str) -> Option<Token> {
+fn line_as_line_block_quote(line: &str) -> Option<Token<'_>> {
     if line.starts_with('>') {
         Some(Token::BlockQuote(line))
     } else {
@@ -431,7 +431,7 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
-    fn parse(s: &str) -> Vec<Token> {
+    fn parse(s: &str) -> Vec<Token<'_>> {
         super::parse(s, "#")
     }
 
