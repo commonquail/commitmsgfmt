@@ -146,9 +146,9 @@ Git commit integration:
 
 ### Other version control systems
 
-`commitmsgfmt` uses Git-like conventions because I use Git but is ultimately
-agnostic about version control systems. I welcome contributions on integrating
-with other systems.
+`commitmsgfmt` uses Git-like conventions but is principally agnostic about
+version control systems. `commitmsgfmt` nominally supports Jujutsu. I welcome
+contributions on integrating with other systems.
 
 ### Alternatives
 

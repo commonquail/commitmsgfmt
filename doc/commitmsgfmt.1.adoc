@@ -16,7 +16,7 @@ commitmsgfmt - Format commit messages
 {self} *--version*
 {self} *-h*
 {self} *--help*
-{self} [*--width* _NUM_]
+{self} [*--comment-string* _STR_] [*--width* _NUM_]
 
 == Description
 
@@ -47,9 +47,15 @@ Display this help and exit.
 
 Output version information and exit.
 
+*-c*, *--comment-string* _STR_::
+
+Specify the prefix string that identifies the current line in the commit
+message editor as a comment line. Default *#*. For Jujutsu use *JJ:*. If
+specified multiple times only the last occurrence is used.
+
 *-w*, *--width* _NUM_::
 
-Specify the max allowed width of body text. Default 72. If specified multiple
+Specify the max allowed width of body text. Default *72*. If specified multiple
 times only the last occurrence is used.
 
 == Details
@@ -88,8 +94,8 @@ of implementation and performance comparability. This may change.
 rules laid out above cause degenerative behavior. {self} attempts to detect
 those cases and avoid them by preventing wrapping: it will
 
-* never break a line immediately before the *core.commentChar* character, which
-  would cause the second line to degenerate into a _comment_;
+* never break a line immediately before the _comment string_, which would cause
+  the second line to degenerate into a _comment_;
 
 * never break a line immediately before any sequence of punctuation, such as
   _ellipses_ and _en_--dashes, which would cause a distraction after the pause
@@ -292,19 +298,28 @@ quote with an author attribution, illustrated above.
 
 === Comment
 
-A line starting with the *core.commentChar* character, or a hash sign (*#*)
-when that setting is unset, is considered a _comment_. Comments are not
-wrapped. If the whole line matches the _scissor_ marker it is instead
-considered _scissored_.
+A line starting with the specified _comment string_ is considered a _comment_.
+Comments are not wrapped. If the whole line matches the _scissor_ marker it is
+instead considered _scissored_.
+
+The _comment string_ is given by
+
+. the *--comment-string* option value, or
+. the *core.commentChar* configuration value, or
+. the *core.commentString* configuration value since Git 2.45.0, or
+. the hash sign (*#*) when none of the other options are specified.
 
 {self} currently does not support the special *auto* value for
 *core.commentChar*. In that case, {self} falls back to the hash sign.
 
 === Scissored
 
-A line matching the _scissor_ marker, as defined by *git-commit*(1), denotes
-the start of scissored content. Everything from the scissor to the end of the
-stream is printed verbatim. *git commit --verbose* relies on this.
+A line matching the _scissor_ marker denotes the start of scissored content.
+Everything from the scissor to the end of the stream is printed verbatim. *git
+commit --verbose* relies on this.
+
+The _scissor_ marker is as defined by *git-commit*(1) or alternatively the
+literal _comment string_ suffix *ignore-rest* used by Jujutsu.
 
 == Usage
 

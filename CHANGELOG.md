@@ -3,6 +3,12 @@
 `commitmsgfmt` formats commit messages. It reflows and wraps text, with special
 understanding of patterns often seen in commit messages.
 
+## Unreleased
+
+- MSRV 1.63.
+
+- Nominal Jujutsu support, contributed by Manuel Mendez.
+
 ## 1.6.0 - 2023-11-11
 
 - #6: Recognize lines that begin with `>` as _block quotes_ and preserve them
